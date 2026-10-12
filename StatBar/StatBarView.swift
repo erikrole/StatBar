@@ -1,0 +1,332 @@
+import AppKit
+import Charts
+import SwiftUI
+
+enum Format {
+    static func bytes(_ value: UInt64) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(clamping: value), countStyle: .memory)
+    }
+
+    static func diskBytes(_ value: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
+    }
+
+    static func rate(_ bytesPerSecond: Double) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(max(0, bytesPerSecond)), countStyle: .file) + "/s"
+    }
+
+    static func percent(_ fraction: Double) -> String {
+        "\(Int((fraction * 100).rounded()))%"
+    }
+}
+
+struct StatBarView: View {
+    @Bindable var monitor: StatMonitor
+    @Bindable var launchAtLogin: LaunchAtLoginController
+    @State private var processSort: ProcessSort = .cpu
+
+    enum ProcessSort: String, CaseIterable, Identifiable {
+        case cpu = "CPU"
+        case memory = "Memory"
+        var id: Self { self }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                cards
+            }
+            Divider()
+            footer
+        }
+        .frame(width: 360, height: 600)
+    }
+
+    // MARK: - Cards
+
+    /// Every card, without the scroll view, so `--snapshot` can render it too.
+    var cards: some View {
+        VStack(spacing: 10) {
+            cpuCard
+            gpuCard
+            memoryCard
+            disksCard
+            heatCard
+            processesCard
+        }
+        .padding(12)
+    }
+
+    private var cpuCard: some View {
+        Card(title: "CPU", value: Format.percent(monitor.cpu), symbol: "cpu") {
+            Sparkline(values: monitor.cpuHistory, tint: .blue)
+            ForEach(monitor.coreGroups) { group in
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack {
+                        Text("\(group.name) · \(group.coreCount) cores")
+                        Spacer()
+                        Text(Format.percent(group.load)).monospacedDigit()
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    CoreBars(loads: group.coreLoads)
+                }
+            }
+        }
+    }
+
+    private var gpuCard: some View {
+        Card(title: "GPU", value: monitor.gpu.map(Format.percent) ?? "–", symbol: "square.stack.3d.up") {
+            Sparkline(values: monitor.gpuHistory, tint: .purple)
+        }
+    }
+
+    @ViewBuilder
+    private var memoryCard: some View {
+        if let memory = monitor.memory {
+            Card(title: "Memory", value: memory.pressure.label, valueColor: pressureColor(memory.pressure), symbol: "memorychip") {
+                UsageBar(fraction: memory.usedFraction, tint: pressureColor(memory.pressure))
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 3) {
+                    StatRow("Used", "\(Format.bytes(memory.used)) of \(Format.bytes(memory.total))")
+                    StatRow("Compressed", Format.bytes(memory.compressed))
+                    StatRow("Cached files", Format.bytes(memory.cached))
+                    StatRow("Swap", memory.swapTotal == 0 ? "None" : "\(Format.bytes(memory.swapUsed)) of \(Format.bytes(memory.swapTotal))")
+                }
+                .font(.caption)
+            }
+        }
+    }
+
+    private var disksCard: some View {
+        Card(title: "Disks", value: nil, symbol: "internaldrive") {
+            ForEach(monitor.volumes) { volume in
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack {
+                        Image(systemName: volume.isInternal ? "internaldrive" : "externaldrive")
+                            .foregroundStyle(.secondary)
+                        Text(volume.name).lineLimit(1)
+                        Spacer()
+                        Text("\(Format.diskBytes(volume.available)) free")
+                            .monospacedDigit()
+                            .foregroundStyle(volume.usedFraction > 0.9 ? .orange : .secondary)
+                    }
+                    .font(.caption)
+                    UsageBar(fraction: volume.usedFraction, tint: volume.usedFraction > 0.9 ? .orange : .teal)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { NSWorkspace.shared.open(volume.url) }
+                .help("Open \(volume.name)")
+            }
+            HStack(spacing: 16) {
+                Label(Format.rate(monitor.readRate), systemImage: "arrow.down")
+                Label(Format.rate(monitor.writeRate), systemImage: "arrow.up")
+                Spacer()
+            }
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    private var heatCard: some View {
+        Card(title: "Heat", value: monitor.thermalLabel, valueColor: thermalColor, symbol: "thermometer.medium") {
+            if monitor.fanSpeeds.isEmpty {
+                Text("No fan readings").font(.caption).foregroundStyle(.secondary)
+            } else {
+                HStack(spacing: 16) {
+                    ForEach(Array(monitor.fanSpeeds.enumerated()), id: \.offset) { index, rpm in
+                        Label("\(monitor.fanSpeeds.count > 1 ? "Fan \(index + 1): " : "Fan: ")\(rpm < 1 ? "Off" : "\(Int(rpm)) rpm")",
+                              systemImage: "fan")
+                    }
+                    Spacer()
+                }
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var processesCard: some View {
+        Card(title: "Top apps", value: nil, symbol: "list.bullet") {
+            Picker("Sort", selection: $processSort) {
+                ForEach(ProcessSort.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .controlSize(.small)
+            ForEach(topProcesses) { process in
+                HStack {
+                    Text(process.name).lineLimit(1)
+                    if process.count > 1 {
+                        Text("×\(process.count)").foregroundStyle(.tertiary)
+                    }
+                    Spacer()
+                    Text(processSort == .cpu ? String(format: "%.0f%%", process.cpu) : Format.bytes(process.memory))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                .font(.caption)
+            }
+            if monitor.processes.isEmpty {
+                Text("Reading…").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var topProcesses: [ProcessUsage] {
+        let sorted = processSort == .cpu
+            ? monitor.processes.sorted { $0.cpu > $1.cpu }
+            : monitor.processes.sorted { $0.memory > $1.memory }
+        return Array(sorted.prefix(6))
+    }
+
+    private var footer: some View {
+        HStack {
+            Toggle("Launch at login", isOn: Binding(
+                get: { launchAtLogin.isEnabled },
+                set: { launchAtLogin.setEnabled($0) }
+            ))
+            .toggleStyle(.checkbox)
+            .controlSize(.small)
+            Spacer()
+            Button("Activity Monitor") {
+                NSWorkspace.shared.open(URL(filePath: "/System/Applications/Utilities/Activity Monitor.app"))
+            }
+            .buttonStyle(.borderless)
+            .controlSize(.small)
+            Button("Quit") { NSApp.terminate(nil) }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+    }
+
+    private func pressureColor(_ pressure: MemorySnapshot.Pressure) -> Color {
+        switch pressure {
+        case .normal: .green
+        case .warning: .yellow
+        case .critical: .red
+        }
+    }
+
+    private var thermalColor: Color {
+        switch monitor.thermalState {
+        case .nominal: .secondary
+        case .fair: .yellow
+        case .serious: .orange
+        case .critical: .red
+        @unknown default: .secondary
+        }
+    }
+}
+
+// MARK: - Building blocks
+
+private struct Card<Content: View>: View {
+    let title: String
+    let value: String?
+    var valueColor: Color = .primary
+    let symbol: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label(title, systemImage: symbol)
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                if let value {
+                    Text(value)
+                        .font(.subheadline.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(valueColor)
+                        .contentTransition(.numericText())
+                }
+            }
+            content
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+private struct StatRow: View {
+    let label: String
+    let value: String
+
+    init(_ label: String, _ value: String) {
+        self.label = label
+        self.value = value
+    }
+
+    var body: some View {
+        GridRow {
+            Text(label).foregroundStyle(.secondary)
+            Text(value).monospacedDigit()
+        }
+    }
+}
+
+private struct Sparkline: View {
+    let values: [Double]
+    let tint: Color
+
+    var body: some View {
+        // Newest sample sits at the right edge; history fills in from the right.
+        let offset = StatMonitor.historyLength - values.count
+        Chart(Array(values.enumerated()), id: \.offset) { index, value in
+            AreaMark(x: .value("Sample", index + offset), y: .value("Load", value))
+                .foregroundStyle(tint.opacity(0.18))
+            LineMark(x: .value("Sample", index + offset), y: .value("Load", value))
+                .foregroundStyle(tint)
+                .lineStyle(StrokeStyle(lineWidth: 1.2))
+        }
+        .chartXScale(domain: 0...max(StatMonitor.historyLength - 1, 1))
+        .chartYScale(domain: 0...1)
+        .chartXAxis(.hidden)
+        .chartYAxis(.hidden)
+        .frame(height: 36)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct CoreBars: View {
+    let loads: [Double]
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 2) {
+            ForEach(Array(loads.enumerated()), id: \.offset) { _, load in
+                GeometryReader { proxy in
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        RoundedRectangle(cornerRadius: 1.5)
+                            .fill(load > 0.85 ? Color.orange : Color.blue)
+                            .frame(height: max(1.5, proxy.size.height * load))
+                    }
+                }
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 1.5))
+            }
+        }
+        .frame(height: 18)
+        .animation(.easeOut(duration: 0.4), value: loads)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct UsageBar: View {
+    let fraction: Double
+    let tint: Color
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule().fill(.quaternary)
+                Capsule().fill(tint).frame(width: proxy.size.width * min(max(fraction, 0), 1))
+            }
+        }
+        .frame(height: 6)
+        .animation(.easeOut(duration: 0.4), value: fraction)
+    }
+}

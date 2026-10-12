@@ -1,0 +1,53 @@
+name: StatBar
+options:
+  bundleIdPrefix: com.erole
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: 6.0
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    DEVELOPMENT_TEAM: ""
+targets:
+  StatBar:
+    type: application
+    platform: macOS
+    sources:
+      - StatBar
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.erole.StatBar
+        PRODUCT_NAME: StatBar
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        ENABLE_HARDENED_RUNTIME: YES
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: StatBar/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        DEVELOPMENT_TEAM: T26T3G8C7Q
+      configs:
+        Debug:
+          CODE_SIGN_STYLE: Automatic
+          CODE_SIGN_IDENTITY: "Apple Development"
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: YES
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "Developer ID Application"
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+    scheme:
+      testTargets:
+        - StatBarTests
+  StatBarTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - StatBarTests
+    dependencies:
+      - target: StatBar
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.erole.StatBarTests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        DEVELOPMENT_TEAM: T26T3G8C7Q
