@@ -149,9 +149,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func snapshotAndExit(to path: String) async {
         monitor.start()
         monitor.setPopoverVisible(true)
-        try? await Task.sleep(for: .seconds(6.5))
+        try? await Task.sleep(for: .seconds(40))
         // ImageRenderer can't draw scroll views or AppKit controls, so render the cards alone.
-        let view = StatBarView(monitor: monitor, launchAtLogin: launchAtLogin).cards
+        let view = StatBarView(monitor: monitor, launchAtLogin: launchAtLogin, isSnapshot: true).cards
             .frame(width: 360)
             .background(Color(nsColor: .windowBackgroundColor))
             .environment(\.colorScheme, .dark)

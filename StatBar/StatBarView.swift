@@ -24,6 +24,8 @@ struct StatBarView: View {
     @Bindable var monitor: StatMonitor
     @Bindable var launchAtLogin: LaunchAtLoginController
     @State private var processSort: ProcessSort = .cpu
+    /// Set by `--snapshot`, which can't draw AppKit controls such as the segmented picker.
+    var isSnapshot = false
 
     enum ProcessSort: String, CaseIterable, Identifiable {
         case cpu = "CPU"
@@ -147,12 +149,14 @@ struct StatBarView: View {
 
     private var processesCard: some View {
         Card(title: "Top apps", value: nil, symbol: "list.bullet") {
+            if !isSnapshot {
             Picker("Sort", selection: $processSort) {
                 ForEach(ProcessSort.allCases) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
             .controlSize(.small)
+            }
             ForEach(topProcesses) { process in
                 HStack {
                     Text(process.name).lineLimit(1)
