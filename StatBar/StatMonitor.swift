@@ -71,12 +71,12 @@ final class StatMonitor {
     private(set) var uploadHistory: [Double] = []
     private let networkReader = SystemNetworkReader()
     private var lastCounters: (interface: String, counters: InterfaceCounters, at: Date)?
-    private let pathMonitor = NWPathMonitor()
 
     private var cpuReader = CPUReader()
     private let fans = FanReader()
     private var lastIO: (read: UInt64, write: UInt64, at: Date)?
-    private var timer: Timer?
+    private var samplingTask: Task<Void, Never>?
+    private var pathTask: Task<Void, Never>?
     private var isPopoverVisible = false
     private var detailStartedAt: Date?
     private var detailRound = 0
@@ -89,15 +89,16 @@ final class StatMonitor {
     private var isPaused = false
 
     func start() {
-        pathMonitor.pathUpdateHandler = { [weak self] path in
-            let reachable = path.status == .satisfied
-            Task { @MainActor in self?.internetReachable = reachable }
+        pathTask = Task { [weak self] in
+            for await path in NWPathMonitor() {
+                guard let self else { return }
+                self.internetReachable = path.status == .satisfied
+            }
         }
-        pathMonitor.start(queue: DispatchQueue(label: "StatBar.path"))
         if notificationsEnabled { Self.requestNotificationPermission() }
         sampleFast()
         thermalState = ProcessInfo.processInfo.thermalState
-        timer = Scheduler.repeating(every: Self.interval) { [weak self] in self?.tick() }
+        startSampling()
     }
 
     func setPopoverVisible(_ visible: Bool) {
@@ -151,13 +152,14 @@ final class StatMonitor {
             content.title = insight.title
             if let detail = insight.detail { content.body = detail }
             content.interruptionLevel = insight.severity == .critical ? .timeSensitive : .active
-            UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: insight.id, content: content, trigger: nil))
+            let request = UNNotificationRequest(identifier: insight.id, content: content, trigger: nil)
+            Task { try? await UNUserNotificationCenter.current().add(request) }
         }
     }
 
     static func requestNotificationPermission() {
         guard !isRunningTests else { return }
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        Task { _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) }
     }
 
     private static var isRunningTests: Bool {
@@ -312,14 +314,27 @@ final class StatMonitor {
         guard paused != isPaused else { return }
         isPaused = paused
         if paused {
-            timer?.invalidate()
-            timer = nil
+            samplingTask?.cancel()
+            samplingTask = nil
         } else {
             lastIO = nil
             lastCounters = nil
             engine.resetPending()
             tick()
-            timer = Scheduler.repeating(every: Self.interval) { [weak self] in self?.tick() }
+            startSampling()
+        }
+    }
+
+    /// Ticks every `interval` on the main actor; a sleeping task keeps sampling alive
+    /// while the popover scrolls, with the same tolerance the old timer had.
+    private func startSampling() {
+        samplingTask?.cancel()
+        samplingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(Self.interval), tolerance: .seconds(Self.interval * 0.15))
+                guard !Task.isCancelled, let self else { return }
+                self.tick()
+            }
         }
     }
 
@@ -349,18 +364,5 @@ final class StatMonitor {
         case .critical: "Critical, throttling hard"
         @unknown default: "Unknown"
         }
-    }
-}
-
-@MainActor
-enum Scheduler {
-    static func repeating(every interval: TimeInterval, _ action: @escaping @MainActor () -> Void) -> Timer {
-        // Common modes, so sampling keeps going while you scroll the popover.
-        let timer = Timer(timeInterval: interval, repeats: true) { _ in
-            MainActor.assumeIsolated { action() }
-        }
-        timer.tolerance = interval * 0.15
-        RunLoop.main.add(timer, forMode: .common)
-        return timer
     }
 }

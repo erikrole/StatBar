@@ -51,7 +51,7 @@ are read only while the popover is open.
 
 ## Build and run
 
-Requirements: macOS 14 or later, Xcode, and XcodeGen.
+Requirements: macOS 27 or later, Xcode, and XcodeGen.
 
 ```sh
 xcodegen generate

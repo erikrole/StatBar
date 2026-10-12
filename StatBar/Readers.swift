@@ -427,7 +427,7 @@ struct QuickProcessSampler: Sendable {
             var path = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
             let name: String
             if proc_pidpath(pid, &path, UInt32(path.count)) > 0 {
-                let full = String(cString: path)
+                let full = String(cCharacters: path)
                 name = ProcessReader.outermostAppName(full) ?? URL(filePath: full).lastPathComponent
             } else {
                 continue
@@ -487,7 +487,7 @@ enum ProcessReader {
     private static func executablePath(_ pid: Int32) -> String? {
         var buffer = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
         guard proc_pidpath(pid, &buffer, UInt32(buffer.count)) > 0 else { return nil }
-        return String(cString: buffer)
+        return String(cCharacters: buffer)
     }
 
     static func appName(_ command: String) -> String {
@@ -529,5 +529,13 @@ func sysctlString(_ name: String) -> String? {
     guard sysctlbyname(name, nil, &size, nil, 0) == 0, size > 0 else { return nil }
     var buffer = [CChar](repeating: 0, count: size)
     guard sysctlbyname(name, &buffer, &size, nil, 0) == 0 else { return nil }
-    return String(cString: buffer)
+    return String(cCharacters: buffer)
+}
+
+extension String {
+    /// Decodes a NUL-terminated C character buffer.
+    init(cCharacters buffer: [CChar]) {
+        let end = buffer.firstIndex(of: 0) ?? buffer.endIndex
+        self.init(decoding: buffer[..<end].map { UInt8(bitPattern: $0) }, as: UTF8.self)
+    }
 }

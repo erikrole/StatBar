@@ -19,6 +19,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let popover = NSPopover()
     private var statusItem: NSStatusItem?
     private var outsideClickMonitor: Any?
+    private var sleepTask: Task<Void, Never>?
+    private var wakeTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
@@ -80,11 +82,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     private func observeScreenSleep() {
         let center = NSWorkspace.shared.notificationCenter
-        center.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor in self?.monitor.setPaused(true) }
+        sleepTask = Task { [weak self] in
+            for await _ in center.notifications(named: NSWorkspace.screensDidSleepNotification) {
+                self?.monitor.setPaused(true)
+            }
         }
-        center.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor in self?.monitor.setPaused(false) }
+        wakeTask = Task { [weak self] in
+            for await _ in center.notifications(named: NSWorkspace.screensDidWakeNotification) {
+                self?.monitor.setPaused(false)
+            }
         }
     }
 
