@@ -80,6 +80,8 @@ final class StatMonitor {
     private var isPopoverVisible = false
     private var isSamplingDetail = false
     private var tickCount = 0
+    private var quickSampler = QuickProcessSampler()
+    private var detailsInterface: String?
     private var isPaused = false
 
     func start() {
@@ -191,6 +193,7 @@ final class StatMonitor {
         network.routerAddress = route.routerAddress
         guard let name = route.interfaceName else {
             network.transport = .none
+            detailsInterface = nil
             downloadRate = 0
             uploadRate = 0
             lastCounters = nil
@@ -212,12 +215,18 @@ final class StatMonitor {
     /// Interface names, addresses, link speed and VPN change rarely; read them with the popover open.
     private func sampleNetworkDetails() {
         guard let name = network.interfaceName else { return }
-        network.transport = networkReader.transport(forBSDName: name) ?? .other
-        network.displayName = networkReader.displayName(forBSDName: name)
+        // The interface's kind and display name only change when the interface does, and
+        // looking them up walks every network interface (~4 ms), so cache them per name.
+        if detailsInterface != name {
+            detailsInterface = name
+            network.transport = networkReader.transport(forBSDName: name) ?? .other
+            network.displayName = networkReader.displayName(forBSDName: name)
+            network.linkSpeedBitsPerSecond = nil
+        }
         network.localAddress = networkReader.localIPv4Address(for: name)
-        network.linkSpeedBitsPerSecond = network.transport == .ethernet
+        network.linkSpeedBitsPerSecond = network.transport == .ethernet && isPopoverVisible
             ? networkReader.activeEthernetConnections().first { $0.interfaceName == name }?.linkSpeedBitsPerSecond
-            : nil
+            : (network.transport == .ethernet ? network.linkSpeedBitsPerSecond : nil)
         network.vpnTunnel = networkReader.globalProtectTunnel()
     }
 
@@ -229,12 +238,23 @@ final class StatMonitor {
         // a slow round is skipped rather than piled up.
         guard !isSamplingDetail else { return }
         isSamplingDetail = true
+        // With the popover open: Finder-accurate free space and the full `ps` list (every
+        // other tick). In the background: the kernel mount table and libproc, which cost
+        // a few milliseconds instead of ~140 ms per round.
+        let thorough = isPopoverVisible
+        // `ps` costs ~55 ms, so even with the popover open the app list refreshes every 10 s.
+        let refreshProcesses = !thorough || processes.isEmpty || tickCount % 5 == 0
+        var sampler = quickSampler
         Task.detached(priority: .utility) { [weak self] in
-            let volumes = DiskReader.volumes()
+            let volumes = thorough ? DiskReader.volumes() : DiskReader.quickVolumes()
             let totals = DiskReader.ioTotals()
             let blockers = PowerReader.sleepBlockers()
-            let processes = ProcessReader.sample()
-            await self?.applyDetail(volumes: volumes, totals: totals, blockers: blockers, processes: processes)
+            var processes: [ProcessUsage]?
+            if refreshProcesses {
+                processes = thorough ? ProcessReader.sample() : sampler.sample()
+            }
+            await self?.applyDetail(volumes: volumes, totals: totals, blockers: blockers,
+                                    processes: processes, sampler: thorough ? nil : sampler)
         }
     }
 
@@ -242,8 +262,10 @@ final class StatMonitor {
         volumes: [VolumeInfo],
         totals: (read: UInt64, write: UInt64),
         blockers: [SleepBlocker],
-        processes: [ProcessUsage]
+        processes: [ProcessUsage]?,
+        sampler: QuickProcessSampler?
     ) {
+        if let sampler { quickSampler = sampler }
         isSamplingDetail = false
         hasDetail = true
         self.volumes = volumes
@@ -255,7 +277,7 @@ final class StatMonitor {
         }
         lastIO = (totals.read, totals.write, now)
         sleepBlockers = blockers
-        self.processes = processes
+        if let processes { self.processes = processes }
     }
 
     /// Stops sampling while the displays sleep, so StatBar costs nothing overnight.

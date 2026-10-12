@@ -4,9 +4,13 @@ import Darwin
 import Foundation
 import SystemConfiguration
 
-struct SystemNetworkReader: Sendable {
+struct SystemNetworkReader: @unchecked Sendable {
+    /// One dynamic-store session for the app's lifetime; creating one per read was the
+    /// biggest remaining cost of the two-second tick.
+    private let store = SCDynamicStoreCreate(nil, "StatBar" as CFString, nil, nil)
+
     func activeRoute() -> ActiveRoute {
-        guard let store = SCDynamicStoreCreate(nil, "StatBar" as CFString, nil, nil),
+        guard let store,
               let value = SCDynamicStoreCopyValue(store, "State:/Network/Global/IPv4" as CFString)
                 as? [String: Any]
         else { return ActiveRoute() }

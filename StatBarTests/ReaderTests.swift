@@ -97,3 +97,26 @@ final class HardeningTests: XCTestCase {
         XCTAssertNil(PowerReader.snapshot(from: ["CurrentCapacity": 50, "MaxCapacity": 0]))
     }
 }
+
+final class QuickReaderTests: XCTestCase {
+    func testQuickVolumesIncludeStartupDisk() throws {
+        let startup = try XCTUnwrap(DiskReader.quickVolumes().first { $0.id == "/" })
+        XCTAssertGreaterThan(startup.total, 0)
+        XCTAssertGreaterThan(startup.available, 0)
+        // Same id scheme as the full reader, so mount events line up.
+        XCTAssertTrue(DiskReader.volumes().contains { $0.id == "/" })
+    }
+
+    func testQuickProcessSamplerSeesOwnProcesses() {
+        var sampler = QuickProcessSampler()
+        let first = sampler.sample()
+        XCTAssertFalse(first.isEmpty)
+        XCTAssertTrue(first.allSatisfy { $0.cpu == 0 }, "first sample has no CPU baseline")
+        var spin = 0.0
+        let end = Date().addingTimeInterval(0.3)
+        while Date() < end { spin += sin(spin) }
+        let second = sampler.sample()
+        XCTAssertTrue(second.contains { $0.cpu > 10 }, "the busy test process shows CPU")
+        XCTAssertGreaterThan(spin, -1)
+    }
+}

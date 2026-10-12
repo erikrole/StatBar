@@ -1,5 +1,4 @@
 import AppKit
-import Charts
 import SwiftUI
 
 enum Format {
@@ -368,7 +367,6 @@ private struct Card<Content: View>: View {
                     Text(value)
                         .font(.subheadline.weight(.semibold).monospacedDigit())
                         .foregroundStyle(valueColor)
-                        .contentTransition(.numericText())
                 }
             }
             content
@@ -428,25 +426,33 @@ private struct StatRow: View {
     }
 }
 
+/// A filled line of recent samples, drawn with one Canvas pass. Swift Charts looked the
+/// same but cost several times more to redraw every two seconds.
 private struct Sparkline: View {
     let values: [Double]
     let tint: Color
 
     var body: some View {
-        // Newest sample sits at the right edge; history fills in from the right.
-        let offset = max(0, StatMonitor.historyLength - values.count)
-        let values = values.map { min(max($0, 0), 1) }
-        Chart(Array(values.enumerated()), id: \.offset) { index, value in
-            AreaMark(x: .value("Sample", index + offset), y: .value("Load", value))
-                .foregroundStyle(tint.opacity(0.18))
-            LineMark(x: .value("Sample", index + offset), y: .value("Load", value))
-                .foregroundStyle(tint)
-                .lineStyle(StrokeStyle(lineWidth: 1.2))
+        Canvas { context, size in
+            guard values.count > 1 else { return }
+            // Newest sample sits at the right edge; history fills in from the right.
+            let step = size.width / CGFloat(max(StatMonitor.historyLength - 1, 1))
+            let startX = size.width - step * CGFloat(values.count - 1)
+            var line = Path()
+            for (index, value) in values.enumerated() {
+                let point = CGPoint(
+                    x: startX + step * CGFloat(index),
+                    y: size.height * (1 - CGFloat(min(max(value, 0), 1)))
+                )
+                index == 0 ? line.move(to: point) : line.addLine(to: point)
+            }
+            var area = line
+            area.addLine(to: CGPoint(x: size.width, y: size.height))
+            area.addLine(to: CGPoint(x: startX, y: size.height))
+            area.closeSubpath()
+            context.fill(area, with: .color(tint.opacity(0.18)))
+            context.stroke(line, with: .color(tint), lineWidth: 1.2)
         }
-        .chartXScale(domain: 0...max(StatMonitor.historyLength - 1, 1))
-        .chartYScale(domain: 0...1)
-        .chartXAxis(.hidden)
-        .chartYAxis(.hidden)
         .frame(height: 36)
         .accessibilityHidden(true)
     }
@@ -491,7 +497,6 @@ private struct CoreBars: View {
             }
         }
         .frame(height: 18)
-        .animation(.easeOut(duration: 0.4), value: loads)
         .accessibilityHidden(true)
     }
 }
@@ -508,6 +513,5 @@ private struct UsageBar: View {
             }
         }
         .frame(height: 6)
-        .animation(.easeOut(duration: 0.4), value: fraction)
     }
 }
