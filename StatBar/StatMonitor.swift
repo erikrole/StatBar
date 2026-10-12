@@ -105,9 +105,9 @@ final class StatMonitor {
     private func tick() {
         sampleFast()
         thermalState = ProcessInfo.processInfo.thermalState
-        // Detail every tick while you're looking, otherwise every 16 s so StatBar can
+        // Detail every tick while you're looking, otherwise every 30 s so StatBar can
         // still notice a runaway app, a full disk or a mounted drive on its own.
-        if isPopoverVisible || tickCount % 8 == 0 { sampleDetail() }
+        if isPopoverVisible || tickCount % 15 == 0 { sampleDetail() }
         evaluateInsights()
     }
 
