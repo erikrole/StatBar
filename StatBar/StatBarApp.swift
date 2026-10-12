@@ -132,6 +132,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         if let memory = monitor.memory {
             lines.append("MEM   \(Format.bytes(memory.used)) of \(Format.bytes(memory.total)), pressure \(memory.pressure.label), compressed \(Format.bytes(memory.compressed)), swap \(Format.bytes(memory.swapUsed)) of \(Format.bytes(memory.swapTotal))")
         }
+        if let battery = monitor.battery {
+            lines.append("POWER \(battery.percent)%, \(battery.stateLabel)\(battery.remainingLabel.map { ", \($0)" } ?? ""), flow \(battery.flowWatts.map { String(format: "%.1f W", $0) } ?? "n/a"), charger \(battery.adapterWatts.map { "\($0) W" } ?? "none"), health \(battery.health.map(Format.percent) ?? "n/a"), \(battery.cycleCount ?? 0) cycles")
+        }
+        for blocker in monitor.sleepBlockers {
+            lines.append("AWAKE \(blocker.process): \(blocker.reason)")
+        }
+        let network = monitor.network
+        lines.append("NET   \(monitor.internetReachable == true ? "online" : "offline/checking") via \(network.displayName ?? network.transport.rawValue) (\(network.interfaceName ?? "-")) \(network.localAddress ?? ""), router \(network.routerAddress ?? "-"), VPN \(network.vpnTunnel ?? "off"), down \(Format.rate(monitor.downloadRate)), up \(Format.rate(monitor.uploadRate))")
         for volume in monitor.volumes {
             lines.append("DISK  \(volume.name): \(Format.bytes(UInt64(volume.available))) free of \(Format.bytes(UInt64(volume.total)))")
         }

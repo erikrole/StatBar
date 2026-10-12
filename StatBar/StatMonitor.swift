@@ -1,4 +1,5 @@
 import Foundation
+import Network
 import Observation
 
 /// Samples the system every two seconds. CPU, GPU and memory run all the time so the
@@ -33,6 +34,30 @@ final class StatMonitor {
     private(set) var thermalState: ProcessInfo.ThermalState = .nominal
     private(set) var processes: [ProcessUsage] = []
 
+    // Power (formerly PowerBar)
+    private(set) var battery: BatterySnapshot?
+    private(set) var sleepBlockers: [SleepBlocker] = []
+
+    // Network (formerly NetBar)
+    struct NetworkState: Equatable {
+        var transport: TransportKind = .none
+        var interfaceName: String?
+        var displayName: String?
+        var localAddress: String?
+        var routerAddress: String?
+        var linkSpeedBitsPerSecond: UInt64?
+        var vpnTunnel: String?
+    }
+    private(set) var network = NetworkState()
+    private(set) var internetReachable: Bool?
+    private(set) var downloadRate: Double = 0
+    private(set) var uploadRate: Double = 0
+    private(set) var downloadHistory: [Double] = []
+    private(set) var uploadHistory: [Double] = []
+    private let networkReader = SystemNetworkReader()
+    private var lastCounters: (interface: String, counters: InterfaceCounters, at: Date)?
+    private let pathMonitor = NWPathMonitor()
+
     private var cpuReader = CPUReader()
     private let fans = FanReader()
     private var lastIO: (read: UInt64, write: UInt64, at: Date)?
@@ -40,6 +65,11 @@ final class StatMonitor {
     private var isPopoverVisible = false
 
     func start() {
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            let reachable = path.status == .satisfied
+            Task { @MainActor in self?.internetReachable = reachable }
+        }
+        pathMonitor.start(queue: DispatchQueue(label: "StatBar.path"))
         sampleFast()
         thermalState = ProcessInfo.processInfo.thermalState
         timer = Timer.scheduledTimer(withTimeInterval: Self.interval, repeats: true) { [weak self] _ in
@@ -79,6 +109,45 @@ final class StatMonitor {
         if let gpu { Self.append(gpu, to: &gpuHistory) }
         memory = MemoryReader.read()
         if let memory { Self.append(memory.usedFraction, to: &memoryHistory) }
+        battery = PowerReader.battery()
+        sampleNetworkRates()
+    }
+
+    /// Route and throughput every tick, so the graphs have history when the popover opens.
+    private func sampleNetworkRates() {
+        let route = networkReader.activeRoute()
+        network.interfaceName = route.interfaceName
+        network.routerAddress = route.routerAddress
+        guard let name = route.interfaceName else {
+            network.transport = .none
+            downloadRate = 0
+            uploadRate = 0
+            lastCounters = nil
+            return
+        }
+        let now = Date()
+        if let counters = networkReader.counters(for: name) {
+            if let last = lastCounters, last.interface == name {
+                let elapsed = max(now.timeIntervalSince(last.at), 0.5)
+                downloadRate = Double(counters.receivedBytes &- last.counters.receivedBytes) / elapsed
+                uploadRate = Double(counters.sentBytes &- last.counters.sentBytes) / elapsed
+                Self.append(downloadRate, to: &downloadHistory)
+                Self.append(uploadRate, to: &uploadHistory)
+            }
+            lastCounters = (name, counters, now)
+        }
+    }
+
+    /// Interface names, addresses, link speed and VPN change rarely; read them with the popover open.
+    private func sampleNetworkDetails() {
+        guard let name = network.interfaceName else { return }
+        network.transport = networkReader.transport(forBSDName: name) ?? .other
+        network.displayName = networkReader.displayName(forBSDName: name)
+        network.localAddress = networkReader.localIPv4Address(for: name)
+        network.linkSpeedBitsPerSecond = network.transport == .ethernet
+            ? networkReader.activeEthernetConnections().first { $0.interfaceName == name }?.linkSpeedBitsPerSecond
+            : nil
+        network.vpnTunnel = networkReader.globalProtectTunnel()
     }
 
     private func sampleDetail() {
@@ -92,6 +161,8 @@ final class StatMonitor {
         }
         lastIO = (totals.read, totals.write, now)
         fanSpeeds = fans?.speeds() ?? []
+        sleepBlockers = PowerReader.sleepBlockers()
+        sampleNetworkDetails()
         Task.detached(priority: .utility) {
             let processes = ProcessReader.sample()
             await MainActor.run { [weak self] in self?.processes = processes }

@@ -2,9 +2,9 @@
 
 StatBar is a native macOS menu bar utility for the system stats that matter on a
 personal M5 Max MacBook Pro used for video and motion work. It is a lean,
-from-scratch take on the idea behind iStat Menus, and it leaves battery, power
-and network to its siblings [PowerBar](https://github.com/erikrole/PowerBar) and
-[NetBar](https://github.com/erikrole/NetBar).
+from-scratch take on the idea behind iStat Menus, and it absorbs the battery and
+network views that used to live in PowerBar and NetBar, so one menu bar item
+covers the whole machine.
 
 - **Menu bar:** CPU percentage beside a gauge that turns yellow or red with memory pressure.
 - **CPU:** total load with a two-minute history, and each core group (Super and
@@ -12,14 +12,21 @@ and network to its siblings [PowerBar](https://github.com/erikrole/PowerBar) and
 - **GPU:** device utilization with history.
 - **Memory:** pressure first, then used, compressed, cached files and swap, using
   Activity Monitor's definition of Memory Used.
+- **Power:** battery level, charging state and time remaining, live battery flow in
+  watts, charger wattage, battery health and cycles, and which apps are keeping the
+  Mac or its display awake.
+- **Network:** online status, live download and upload graphs, the interface actually
+  in use (with Ethernet link speed), IP address, router, and whether GlobalProtect is
+  connected. Wi-Fi network names are left out because they need Location Services.
 - **Disks:** free space on the startup disk and any local media drives (network
   shares are skipped so a slow NAS can't stall the menu), plus live read and write.
 - **Heat:** macOS thermal state (whether the Mac is throttling) and fan speeds.
 - **Top apps:** by CPU or memory, with helper processes counted as their app.
 
 Everything is read through public, unprivileged interfaces (Mach host statistics,
-sysctl, the IORegistry, read-only SMC fan keys and `ps`). There is no privileged
-helper. CPU, GPU and memory sample every two seconds; disks, fans and the app list
+sysctl, the IORegistry, IOKit power assertions, SystemConfiguration, read-only SMC
+fan keys and `ps`). The network reader is adapted from NetBar's. There is no privileged
+helper. CPU, GPU, memory, battery and network throughput sample every two seconds; disks, fans and the app list
 are read only while the popover is open.
 
 ![Popover](docs/popover.png)

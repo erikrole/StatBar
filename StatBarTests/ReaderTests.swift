@@ -51,3 +51,30 @@ final class ReaderTests: XCTestCase {
         XCTAssertFalse(CPUReader.readGroups().isEmpty)
     }
 }
+
+final class PowerTests: XCTestCase {
+    func testBatterySnapshotFromRegistry() throws {
+        let registry: [String: Any] = [
+            "CurrentCapacity": 24, "MaxCapacity": 100, "IsCharging": false, "ExternalConnected": false,
+            "FullyCharged": false, "AvgTimeToEmpty": 52, "Voltage": 12_200, "InstantAmperage": NSNumber(value: Int64(-3000)),
+            "CycleCount": 72,
+            "BatteryData": ["NominalChargeCapacity": 8487, "DesignCapacity": 8579],
+        ]
+        let battery = try XCTUnwrap(PowerReader.snapshot(from: registry))
+        XCTAssertEqual(battery.percent, 24)
+        XCTAssertEqual(battery.remainingLabel, "52 min left")
+        XCTAssertEqual(battery.flowWatts ?? 0, -36.6, accuracy: 0.01)
+        XCTAssertEqual(Format.percent(try XCTUnwrap(battery.health)), "99%")
+        XCTAssertNil(battery.adapterWatts)
+    }
+
+    func testCalculatingTimeIsHidden() throws {
+        let battery = try XCTUnwrap(PowerReader.snapshot(from: [
+            "CurrentCapacity": 80, "MaxCapacity": 100, "IsCharging": true, "ExternalConnected": true, "AvgTimeToFull": 65535,
+            "AdapterDetails": ["Watts": 140],
+        ]))
+        XCTAssertNil(battery.remainingLabel)
+        XCTAssertEqual(battery.adapterWatts, 140)
+        XCTAssertEqual(battery.stateLabel, "Charging")
+    }
+}

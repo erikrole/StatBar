@@ -15,6 +15,12 @@ enum Format {
         ByteCountFormatter.string(fromByteCount: Int64(max(0, bytesPerSecond)), countStyle: .file) + "/s"
     }
 
+    static func linkSpeed(_ bitsPerSecond: UInt64) -> String {
+        bitsPerSecond >= 1_000_000_000
+            ? String(format: "%g Gb/s", Double(bitsPerSecond) / 1_000_000_000)
+            : "\(bitsPerSecond / 1_000_000) Mb/s"
+    }
+
     static func percent(_ fraction: Double) -> String {
         "\(Int((fraction * 100).rounded()))%"
     }
@@ -52,6 +58,8 @@ struct StatBarView: View {
             cpuCard
             gpuCard
             memoryCard
+            powerCard
+            networkCard
             disksCard
             heatCard
             processesCard
@@ -96,6 +104,67 @@ struct StatBarView: View {
                 }
                 .font(.caption)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var powerCard: some View {
+        if let battery = monitor.battery {
+            Card(title: "Power", value: "\(battery.percent)%", valueColor: battery.percent <= 15 && !battery.isPluggedIn ? .red : .primary,
+                 symbol: battery.isCharging ? "battery.100percent.bolt" : "battery.75percent") {
+                UsageBar(fraction: Double(battery.percent) / 100, tint: battery.isPluggedIn ? .green : (battery.percent <= 20 ? .orange : .green))
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 3) {
+                    StatRow("State", [battery.stateLabel, battery.remainingLabel].compactMap { $0 }.joined(separator: " · "))
+                    if let flow = battery.flowWatts, abs(flow) >= 0.1 {
+                        StatRow(flow > 0 ? "Into battery" : "Drawing", String(format: "%.1f W", abs(flow)))
+                    }
+                    if let adapter = battery.adapterWatts {
+                        StatRow("Charger", "\(adapter) W")
+                    }
+                    if let health = battery.health {
+                        StatRow("Health", "\(Format.percent(health))\(battery.cycleCount.map { " · \($0) cycles" } ?? "")")
+                    }
+                }
+                .font(.caption)
+                if !monitor.sleepBlockers.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Keeping your Mac awake")
+                            .font(.caption.weight(.medium))
+                        ForEach(monitor.sleepBlockers) { blocker in
+                            Label("\(blocker.process): \(blocker.reason)", systemImage: blocker.preventsDisplaySleep ? "display" : "moon.zzz")
+                                .lineLimit(1)
+                                .help(blocker.reason)
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var networkCard: some View {
+        let network = monitor.network
+        let status: (String, Color) = switch monitor.internetReachable {
+        case .some(true): ("Online", .green)
+        case .some(false): ("Offline", .red)
+        case .none: ("Checking", .secondary)
+        }
+        return Card(title: "Network", value: status.0, valueColor: status.1, symbol: network.transport.symbolName) {
+            HStack(spacing: 12) {
+                RateGraph(label: "Down", rate: monitor.downloadRate, values: monitor.downloadHistory, tint: .blue, symbol: "arrow.down")
+                RateGraph(label: "Up", rate: monitor.uploadRate, values: monitor.uploadHistory, tint: .orange, symbol: "arrow.up")
+            }
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 3) {
+                StatRow("Using", [
+                    network.displayName ?? network.transport.rawValue,
+                    network.linkSpeedBitsPerSecond.map(Format.linkSpeed),
+                ].compactMap { $0 }.joined(separator: " · "))
+                if let address = network.localAddress { StatRow("IP address", address) }
+                if let router = network.routerAddress { StatRow("Router", router) }
+                StatRow("VPN", network.vpnTunnel == nil ? "GlobalProtect off" : "GlobalProtect connected")
+            }
+            .font(.caption)
         }
     }
 
@@ -293,6 +362,27 @@ private struct Sparkline: View {
         .chartYAxis(.hidden)
         .frame(height: 36)
         .accessibilityHidden(true)
+    }
+}
+
+private struct RateGraph: View {
+    let label: String
+    let rate: Double
+    let values: [Double]
+    let tint: Color
+    let symbol: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Label(Format.rate(rate), systemImage: symbol)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("\(label) \(Format.rate(rate))")
+            let peak = max(values.max() ?? 0, 1)
+            Sparkline(values: values.map { $0 / peak }, tint: tint)
+                .frame(height: 28)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

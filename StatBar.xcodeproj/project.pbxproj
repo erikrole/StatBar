@@ -9,10 +9,12 @@
 /* Begin PBXBuildFile section */
 		02D7AA1E5958080EAB4E1963 /* Readers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91754DC25FBB12DD5AE38CA8 /* Readers.swift */; };
 		74219C8F83730C8C52B0EB41 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3536D3AA5C2FD4690B3A4E4 /* LaunchAtLoginController.swift */; };
+		915D476571055427782D1940 /* NetworkReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77CC8A2F74C8D968564CD4BB /* NetworkReader.swift */; };
 		9BA3F7F8E33D543DB83D440F /* StatMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9EE0ED2C79A45A848349176 /* StatMonitor.swift */; };
 		A5DF8FC531A8598341660262 /* StatBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65EA4229047A48A266E83A38 /* StatBarView.swift */; };
 		B61A97B98B82CA168867A8DE /* ReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7426C42209A6485335CF470A /* ReaderTests.swift */; };
 		C7FC14350B97206DA350A4C3 /* StatBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07CBB179B5C64C04F51D7B17 /* StatBarApp.swift */; };
+		F43556644109C8E1A69BDBA4 /* PowerReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2432D1AADD6C9B693B6EDD8D /* PowerReader.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -27,9 +29,11 @@
 
 /* Begin PBXFileReference section */
 		07CBB179B5C64C04F51D7B17 /* StatBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatBarApp.swift; sourceTree = "<group>"; };
+		2432D1AADD6C9B693B6EDD8D /* PowerReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerReader.swift; sourceTree = "<group>"; };
 		5DF23135E0E629EBA7E5DF18 /* StatBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StatBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		65EA4229047A48A266E83A38 /* StatBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatBarView.swift; sourceTree = "<group>"; };
 		7426C42209A6485335CF470A /* ReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderTests.swift; sourceTree = "<group>"; };
+		77CC8A2F74C8D968564CD4BB /* NetworkReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkReader.swift; sourceTree = "<group>"; };
 		91754DC25FBB12DD5AE38CA8 /* Readers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Readers.swift; sourceTree = "<group>"; };
 		BCA8C85862AA7E6D9249279F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E9EE0ED2C79A45A848349176 /* StatMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatMonitor.swift; sourceTree = "<group>"; };
@@ -52,6 +56,8 @@
 			children = (
 				BCA8C85862AA7E6D9249279F /* Info.plist */,
 				F3536D3AA5C2FD4690B3A4E4 /* LaunchAtLoginController.swift */,
+				77CC8A2F74C8D968564CD4BB /* NetworkReader.swift */,
+				2432D1AADD6C9B693B6EDD8D /* PowerReader.swift */,
 				91754DC25FBB12DD5AE38CA8 /* Readers.swift */,
 				07CBB179B5C64C04F51D7B17 /* StatBarApp.swift */,
 				65EA4229047A48A266E83A38 /* StatBarView.swift */,
@@ -159,6 +165,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				74219C8F83730C8C52B0EB41 /* LaunchAtLoginController.swift in Sources */,
+				915D476571055427782D1940 /* NetworkReader.swift in Sources */,
+				F43556644109C8E1A69BDBA4 /* PowerReader.swift in Sources */,
 				02D7AA1E5958080EAB4E1963 /* Readers.swift in Sources */,
 				C7FC14350B97206DA350A4C3 /* StatBarApp.swift in Sources */,
 				A5DF8FC531A8598341660262 /* StatBarView.swift in Sources */,
