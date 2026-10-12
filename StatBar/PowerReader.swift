@@ -46,10 +46,17 @@ enum PowerReader {
         let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
         guard service != 0 else { return nil }
         defer { IOObjectRelease(service) }
-        var properties: Unmanaged<CFMutableDictionary>?
-        guard IORegistryEntryCreateCFProperties(service, &properties, kCFAllocatorDefault, 0) == KERN_SUCCESS,
-              let dictionary = properties?.takeRetainedValue() as? [String: Any]
-        else { return nil }
+        // Ask for just these keys: the full property set includes large logs and is
+        // the most expensive thing StatBar would otherwise read every tick.
+        let keys = ["CurrentCapacity", "MaxCapacity", "IsCharging", "ExternalConnected", "FullyCharged",
+                    "AvgTimeToFull", "AvgTimeToEmpty", "Voltage", "InstantAmperage", "Amperage",
+                    "AdapterDetails", "CycleCount", "AppleRawMaxCapacity", "DesignCapacity", "BatteryData"]
+        var dictionary: [String: Any] = [:]
+        for key in keys {
+            if let value = IORegistryEntryCreateCFProperty(service, key as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() {
+                dictionary[key] = value
+            }
+        }
         return snapshot(from: dictionary)
     }
 

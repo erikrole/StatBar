@@ -348,7 +348,8 @@ private struct Sparkline: View {
 
     var body: some View {
         // Newest sample sits at the right edge; history fills in from the right.
-        let offset = StatMonitor.historyLength - values.count
+        let offset = max(0, StatMonitor.historyLength - values.count)
+        let values = values.map { min(max($0, 0), 1) }
         Chart(Array(values.enumerated()), id: \.offset) { index, value in
             AreaMark(x: .value("Sample", index + offset), y: .value("Load", value))
                 .foregroundStyle(tint.opacity(0.18))

@@ -67,9 +67,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.animates = true
         popover.delegate = self
         popover.contentSize = NSSize(width: 360, height: 600)
+        observeScreenSleep()
+    }
+
+    /// The SwiftUI popover is built when it opens and torn down when it closes; a hidden
+    /// NSHostingController still re-renders on every sample, which cost ~13% CPU.
+    private func makePopoverContent() {
         popover.contentViewController = NSHostingController(
             rootView: StatBarView(monitor: monitor, launchAtLogin: launchAtLogin)
         )
+    }
+
+    private func observeScreenSleep() {
+        let center = NSWorkspace.shared.notificationCenter
+        center.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.monitor.setPaused(true) }
+        }
+        center.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.monitor.setPaused(false) }
+        }
     }
 
     func popoverDidShow(_ notification: Notification) {
@@ -78,6 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     func popoverDidClose(_ notification: Notification) {
         monitor.setPopoverVisible(false)
+        popover.contentViewController = nil
     }
 
     private func observeMonitor() {
@@ -178,6 +195,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         if popover.isShown {
             popover.performClose(sender)
         } else {
+            makePopoverContent()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.becomeKey()
         }

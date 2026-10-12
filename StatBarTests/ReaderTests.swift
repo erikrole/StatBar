@@ -78,3 +78,22 @@ final class PowerTests: XCTestCase {
         XCTAssertEqual(battery.stateLabel, "Charging")
     }
 }
+
+final class HardeningTests: XCTestCase {
+    func testCounterRateNeverSpikesOnReset() {
+        XCTAssertEqual(counterRate(from: 1_000, to: 3_000, over: 2), 1_000)
+        XCTAssertEqual(counterRate(from: 5_000_000, to: 10, over: 2), 0)
+        XCTAssertEqual(counterRate(from: 10, to: 20, over: 0), 0)
+    }
+
+    func testProcessParsingIgnoresJunkLines() {
+        let output = "garbage\n  12 abc 100 Foo\n  13 1.5 2048 Bar Baz\n"
+        let processes = ProcessReader.parse(output)
+        XCTAssertEqual(processes.map(\.name), ["Bar Baz"])
+    }
+
+    func testBatteryWithoutCapacityIsNil() {
+        XCTAssertNil(PowerReader.snapshot(from: ["CurrentCapacity": 50]))
+        XCTAssertNil(PowerReader.snapshot(from: ["CurrentCapacity": 50, "MaxCapacity": 0]))
+    }
+}

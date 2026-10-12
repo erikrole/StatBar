@@ -63,6 +63,9 @@ final class StatMonitor {
     private var lastIO: (read: UInt64, write: UInt64, at: Date)?
     private var timer: Timer?
     private var isPopoverVisible = false
+    private var isSamplingDetail = false
+    private var tickCount = 0
+    private var isPaused = false
 
     func start() {
         pathMonitor.pathUpdateHandler = { [weak self] path in
@@ -72,10 +75,7 @@ final class StatMonitor {
         pathMonitor.start(queue: DispatchQueue(label: "StatBar.path"))
         sampleFast()
         thermalState = ProcessInfo.processInfo.thermalState
-        timer = Timer.scheduledTimer(withTimeInterval: Self.interval, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.tick() }
-        }
-        timer?.tolerance = 0.3
+        timer = Scheduler.repeating(every: Self.interval) { [weak self] in self?.tick() }
     }
 
     func setPopoverVisible(_ visible: Bool) {
@@ -109,7 +109,12 @@ final class StatMonitor {
         if let gpu { Self.append(gpu, to: &gpuHistory) }
         memory = MemoryReader.read()
         if let memory { Self.append(memory.usedFraction, to: &memoryHistory) }
-        battery = PowerReader.battery()
+        // Battery state changes slowly; every fifth tick (10 s) is plenty, and always
+        // while the popover is open.
+        tickCount &+= 1
+        if battery == nil || isPopoverVisible || tickCount % 5 == 0 {
+            battery = PowerReader.battery()
+        }
         sampleNetworkRates()
     }
 
@@ -129,8 +134,8 @@ final class StatMonitor {
         if let counters = networkReader.counters(for: name) {
             if let last = lastCounters, last.interface == name {
                 let elapsed = max(now.timeIntervalSince(last.at), 0.5)
-                downloadRate = Double(counters.receivedBytes &- last.counters.receivedBytes) / elapsed
-                uploadRate = Double(counters.sentBytes &- last.counters.sentBytes) / elapsed
+                downloadRate = counterRate(from: last.counters.receivedBytes, to: counters.receivedBytes, over: elapsed)
+                uploadRate = counterRate(from: last.counters.sentBytes, to: counters.sentBytes, over: elapsed)
                 Self.append(downloadRate, to: &downloadHistory)
                 Self.append(uploadRate, to: &uploadHistory)
             }
@@ -151,26 +156,58 @@ final class StatMonitor {
     }
 
     private func sampleDetail() {
-        volumes = DiskReader.volumes()
-        let totals = DiskReader.ioTotals()
+        fanSpeeds = fans?.speeds() ?? []
+        sampleNetworkDetails()
+        // Volumes, disk counters, sleep assertions and `ps` can each block for a while
+        // (a waking external drive, a busy system), so they run off the main thread and
+        // a slow round is skipped rather than piled up.
+        guard !isSamplingDetail else { return }
+        isSamplingDetail = true
+        Task.detached(priority: .utility) { [weak self] in
+            let volumes = DiskReader.volumes()
+            let totals = DiskReader.ioTotals()
+            let blockers = PowerReader.sleepBlockers()
+            let processes = ProcessReader.sample()
+            await self?.applyDetail(volumes: volumes, totals: totals, blockers: blockers, processes: processes)
+        }
+    }
+
+    private func applyDetail(
+        volumes: [VolumeInfo],
+        totals: (read: UInt64, write: UInt64),
+        blockers: [SleepBlocker],
+        processes: [ProcessUsage]
+    ) {
+        isSamplingDetail = false
+        self.volumes = volumes
         let now = Date()
         if let lastIO {
             let elapsed = max(now.timeIntervalSince(lastIO.at), 0.5)
-            readRate = Double(totals.read &- lastIO.read) / elapsed
-            writeRate = Double(totals.write &- lastIO.write) / elapsed
+            readRate = counterRate(from: lastIO.read, to: totals.read, over: elapsed)
+            writeRate = counterRate(from: lastIO.write, to: totals.write, over: elapsed)
         }
         lastIO = (totals.read, totals.write, now)
-        fanSpeeds = fans?.speeds() ?? []
-        sleepBlockers = PowerReader.sleepBlockers()
-        sampleNetworkDetails()
-        Task.detached(priority: .utility) {
-            let processes = ProcessReader.sample()
-            await MainActor.run { [weak self] in self?.processes = processes }
+        sleepBlockers = blockers
+        self.processes = processes
+    }
+
+    /// Stops sampling while the displays sleep, so StatBar costs nothing overnight.
+    func setPaused(_ paused: Bool) {
+        guard paused != isPaused else { return }
+        isPaused = paused
+        if paused {
+            timer?.invalidate()
+            timer = nil
+        } else {
+            lastIO = nil
+            lastCounters = nil
+            tick()
+            timer = Scheduler.repeating(every: Self.interval) { [weak self] in self?.tick() }
         }
     }
 
     private static func append(_ value: Double, to history: inout [Double]) {
-        history.append(value)
+        history.append(value.isFinite ? max(0, value) : 0)
         if history.count > historyLength { history.removeFirst(history.count - historyLength) }
     }
 
@@ -195,5 +232,16 @@ final class StatMonitor {
         case .critical: "Critical, throttling hard"
         @unknown default: "Unknown"
         }
+    }
+}
+
+@MainActor
+enum Scheduler {
+    static func repeating(every interval: TimeInterval, _ action: @escaping @MainActor () -> Void) -> Timer {
+        let timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
+            Task { @MainActor in action() }
+        }
+        timer.tolerance = interval * 0.15
+        return timer
     }
 }

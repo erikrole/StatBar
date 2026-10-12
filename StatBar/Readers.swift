@@ -137,7 +137,11 @@ enum MemoryReader {
         }
         guard result == KERN_SUCCESS else { return nil }
         let page = UInt64(sysctlInt64("hw.pagesize") ?? 16_384)
-        let app = UInt64(stats.internal_page_count) - UInt64(stats.purgeable_count)
+        // Clamped: purgeable pages can briefly outnumber internal ones, and a plain
+        // UInt64 subtraction would trap.
+        let internalPages = UInt64(stats.internal_page_count)
+        let purgeable = UInt64(stats.purgeable_count)
+        let app = internalPages > purgeable ? internalPages - purgeable : 0
         let wired = UInt64(stats.wire_count)
         let compressed = UInt64(stats.compressor_page_count)
         let cached = UInt64(stats.external_page_count) + UInt64(stats.purgeable_count)
@@ -335,6 +339,8 @@ enum ProcessReader {
         let process = Process()
         process.executableURL = URL(filePath: "/bin/ps")
         process.arguments = ["-Aceo", "pid=,pcpu=,rss=,comm="]
+        // ps formats %CPU with the locale's decimal separator; force "12.5", not "12,5".
+        process.environment = ["LC_ALL": "C"]
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
@@ -379,6 +385,15 @@ enum ProcessReader {
            trimmed.hasPrefix("com.apple.WebKit") { return "Web content (all apps)" }
         return trimmed
     }
+}
+
+// MARK: - Rates
+
+/// Bytes per second between two cumulative counters. Counters that went backwards
+/// (a drive was ejected, an interface reset) read as zero rather than a huge spike.
+func counterRate(from old: UInt64, to new: UInt64, over seconds: TimeInterval) -> Double {
+    guard new >= old, seconds > 0 else { return 0 }
+    return Double(new - old) / seconds
 }
 
 // MARK: - sysctl helpers
