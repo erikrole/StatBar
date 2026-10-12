@@ -7,6 +7,23 @@ network views that used to live in PowerBar and NetBar, so one menu bar item
 covers the whole machine.
 
 - **Menu bar:** CPU percentage beside a gauge that turns yellow or red with memory pressure.
+- **Now:** a short list of what needs attention, most serious first, and a log of what
+  just happened. Conditions have to hold for a while before they show, so one busy
+  second never flickers in:
+  - an app using more than 1.5 cores for a minute (informational; renders do this);
+  - memory pressure, naming the biggest app, and swap growing fast;
+  - the Mac running warm or throttling, naming the busiest app;
+  - battery under 20% or 10% on battery, or a charger that can't keep up while plugged in;
+  - any drive under 10% or 50 GB free;
+  - being offline for more than a few seconds;
+  - the GPU pinned for two minutes, or an app keeping the Mac awake for half an hour;
+  - events as they happen: a drive mounting or ejecting, going offline and back,
+    switching Wi-Fi and Ethernet, GlobalProtect connecting or dropping.
+
+  Warnings and above tint the menu bar gauge. Serious ones (offline, low battery, a
+  struggling charger, a nearly full disk, critical memory, throttling) can also send
+  a notification, at most once per condition every 30 minutes; the Alerts checkbox
+  turns that off.
 - **CPU:** total load with a two-minute history, and each core group (Super and
   Performance on M5) with per-core bars.
 - **GPU:** device utilization with history.
@@ -41,7 +58,8 @@ xcodebuild -project StatBar.xcodeproj -scheme StatBar -configuration Debug CODE_
 open ~/Library/Developer/Xcode/DerivedData/StatBar-*/Build/Products/Debug/StatBar.app
 ```
 
-`StatBar --report` samples for a few seconds and prints every reading;
+`StatBar --report [seconds]` samples (4.5 s by default) and prints every reading and
+active insight;
 `StatBar --snapshot file.png` renders the popover's cards to an image.
 
 ## Test

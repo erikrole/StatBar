@@ -55,6 +55,7 @@ struct StatBarView: View {
     /// Every card, without the scroll view, so `--snapshot` can render it too.
     var cards: some View {
         VStack(spacing: 10) {
+            nowCard
             cpuCard
             gpuCard
             memoryCard
@@ -65,6 +66,55 @@ struct StatBarView: View {
             processesCard
         }
         .padding(12)
+    }
+
+    /// What needs attention right now, most serious first, plus what just happened.
+    private var nowCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if monitor.insights.isEmpty {
+                Label("All quiet", systemImage: "checkmark.circle")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(monitor.insights) { insight in
+                    InsightRow(insight: insight)
+                }
+            }
+            if !monitor.recentEvents.isEmpty {
+                DisclosureGroup {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(monitor.recentEvents) { event in
+                            HStack(spacing: 6) {
+                                Image(systemName: event.symbol).frame(width: 16)
+                                Text(event.title)
+                                if let detail = event.detail { Text("· \(detail)").foregroundStyle(.tertiary) }
+                                Spacer()
+                                Text(event.since.formatted(date: .omitted, time: .shortened))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .lineLimit(1)
+                        }
+                    }
+                    .padding(.top, 4)
+                } label: {
+                    Text("Recent · \(monitor.recentEvents.count)")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(nowBackground, in: RoundedRectangle(cornerRadius: 10))
+        .animation(.easeOut(duration: 0.25), value: monitor.insights.map(\.id))
+    }
+
+    private var nowBackground: Color {
+        switch monitor.attentionLevel {
+        case .critical: .red.opacity(0.15)
+        case .warning: .yellow.opacity(0.13)
+        default: Color.secondary.opacity(0.08)
+        }
     }
 
     private var cpuCard: some View {
@@ -254,6 +304,10 @@ struct StatBarView: View {
 
     private var footer: some View {
         HStack {
+            Toggle("Alerts", isOn: $monitor.notificationsEnabled)
+                .toggleStyle(.checkbox)
+                .controlSize(.small)
+                .help("Notify me about serious things: offline, low battery, a charger that can't keep up, a nearly full disk, critical memory, throttling.")
             Toggle("Launch at login", isOn: Binding(
                 get: { launchAtLogin.isEnabled },
                 set: { launchAtLogin.setEnabled($0) }
@@ -322,6 +376,38 @@ private struct Card<Content: View>: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+private struct InsightRow: View {
+    let insight: Insight
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: insight.symbol)
+                .foregroundStyle(color)
+                .frame(width: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(insight.title)
+                    .font(.subheadline.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+                if let detail = insight.detail {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var color: Color {
+        switch insight.severity {
+        case .critical: .red
+        case .warning: .orange
+        case .info: .blue
+        }
     }
 }
 

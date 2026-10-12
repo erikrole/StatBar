@@ -1,6 +1,7 @@
 import Foundation
 import Network
 import Observation
+import UserNotifications
 
 /// Samples the system every two seconds. CPU, GPU and memory run all the time so the
 /// menu bar and the short history are always current; disks, fans and the process list
@@ -33,6 +34,20 @@ final class StatMonitor {
     private(set) var fanSpeeds: [Double] = []
     private(set) var thermalState: ProcessInfo.ThermalState = .nominal
     private(set) var processes: [ProcessUsage] = []
+
+    // Attention
+    private(set) var insights: [Insight] = []
+    private(set) var recentEvents: [Insight] = []
+    var notificationsEnabled: Bool = UserDefaults.standard.object(forKey: "notificationsEnabled") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(notificationsEnabled, forKey: "notificationsEnabled")
+            if notificationsEnabled { Self.requestNotificationPermission() }
+        }
+    }
+    private var engine = InsightEngine()
+    private var hasDetail = false
+    private var lastNotified: [String: Date] = [:]
+    var attentionLevel: Insight.Severity? { insights.map(\.severity).max() }
 
     // Power (formerly PowerBar)
     private(set) var battery: BatterySnapshot?
@@ -73,6 +88,7 @@ final class StatMonitor {
             Task { @MainActor in self?.internetReachable = reachable }
         }
         pathMonitor.start(queue: DispatchQueue(label: "StatBar.path"))
+        if notificationsEnabled { Self.requestNotificationPermission() }
         sampleFast()
         thermalState = ProcessInfo.processInfo.thermalState
         timer = Scheduler.repeating(every: Self.interval) { [weak self] in self?.tick() }
@@ -89,7 +105,57 @@ final class StatMonitor {
     private func tick() {
         sampleFast()
         thermalState = ProcessInfo.processInfo.thermalState
-        if isPopoverVisible { sampleDetail() }
+        // Detail every tick while you're looking, otherwise every 16 s so StatBar can
+        // still notice a runaway app, a full disk or a mounted drive on its own.
+        if isPopoverVisible || tickCount % 8 == 0 { sampleDetail() }
+        evaluateInsights()
+    }
+
+    private func evaluateInsights() {
+        var signals = Signals()
+        signals.cpu = cpu
+        signals.gpu = gpu
+        signals.memory = memory
+        signals.thermal = thermalState
+        signals.battery = battery
+        signals.online = internetReachable
+        signals.transport = network.transport
+        signals.interfaceName = network.interfaceName
+        if hasDetail {
+            signals.vpnConnected = network.vpnTunnel != nil
+            signals.processes = processes
+            signals.volumes = volumes
+            signals.sleepBlockers = sleepBlockers
+        }
+        let fresh = engine.update(signals)
+        insights = engine.active
+        recentEvents = engine.events
+        notify(fresh)
+    }
+
+    /// Notifies once per condition, and not again for the same condition within 30 min,
+    /// so something that flaps doesn't nag.
+    private func notify(_ fresh: [Insight]) {
+        guard notificationsEnabled, !Self.isRunningTests else { return }
+        let now = Date()
+        for insight in fresh where insight.notifies {
+            if let last = lastNotified[insight.id], now.timeIntervalSince(last) < 30 * 60 { continue }
+            lastNotified[insight.id] = now
+            let content = UNMutableNotificationContent()
+            content.title = insight.title
+            if let detail = insight.detail { content.body = detail }
+            content.interruptionLevel = insight.severity == .critical ? .timeSensitive : .active
+            UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: insight.id, content: content, trigger: nil))
+        }
+    }
+
+    static func requestNotificationPermission() {
+        guard !isRunningTests else { return }
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
+    private static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 
     private func sampleFast() {
@@ -179,6 +245,7 @@ final class StatMonitor {
         processes: [ProcessUsage]
     ) {
         isSamplingDetail = false
+        hasDetail = true
         self.volumes = volumes
         let now = Date()
         if let lastIO {

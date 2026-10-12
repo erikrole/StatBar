@@ -101,6 +101,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         withObservationTracking {
             _ = monitor.cpu
             _ = monitor.memory?.pressure
+            _ = monitor.attentionLevel
         } onChange: { [weak self] in
             Task { @MainActor in
                 guard let self else { return }
@@ -120,15 +121,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func updateStatusItem() {
         guard let button = statusItem?.button else { return }
         var configuration = NSImage.SymbolConfiguration(pointSize: 13, weight: .medium)
-        let pressure = monitor.memory?.pressure ?? .normal
-        if pressure != .normal {
-            configuration = configuration.applying(NSImage.SymbolConfiguration(
-                hierarchicalColor: pressure == .critical ? .systemRed : .systemYellow
-            ))
+        // Tint only for warnings and above; informational notes stay in the popup.
+        let tint: NSColor? = switch monitor.attentionLevel {
+        case .critical: .systemRed
+        case .warning: .systemYellow
+        default: nil
         }
-        let image = NSImage(systemSymbolName: "gauge.with.dots.needle.33percent", accessibilityDescription: nil)?
+        if let tint {
+            configuration = configuration.applying(NSImage.SymbolConfiguration(hierarchicalColor: tint))
+        }
+        let symbol = tint == nil ? "gauge.with.dots.needle.33percent" : "exclamationmark.triangle"
+        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
             .withSymbolConfiguration(configuration)
-        image?.isTemplate = pressure == .normal
+        image?.isTemplate = tint == nil
         button.image = image
         button.title = monitor.menuBarText
         button.toolTip = monitor.accessibilitySummary
@@ -139,8 +144,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func printReportAndExit() async {
         monitor.start()
         monitor.setPopoverVisible(true)
-        try? await Task.sleep(for: .seconds(4.5))
+        // `--report 75` watches longer, so sustained conditions have time to show.
+        let seconds = CommandLine.arguments.firstIndex(of: "--report")
+            .flatMap { CommandLine.arguments.indices.contains($0 + 1) ? Double(CommandLine.arguments[$0 + 1]) : nil } ?? 4.5
+        try? await Task.sleep(for: .seconds(seconds))
         var lines: [String] = []
+        for insight in monitor.insights {
+            lines.append("NOW   [\(insight.severity)] \(insight.title)\(insight.detail.map { " — \($0)" } ?? "")")
+        }
         lines.append(String(format: "CPU   %.0f%%", monitor.cpu * 100))
         for group in monitor.coreGroups {
             lines.append(String(format: "  %@ (%d cores)  %.0f%%", group.name, group.coreCount, group.load * 100))
