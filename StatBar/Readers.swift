@@ -376,7 +376,7 @@ enum ProcessReader {
         let trimmed = command.trimmingCharacters(in: .whitespaces)
         if let range = trimmed.range(of: " Helper") { return String(trimmed[..<range.lowerBound]) }
         if trimmed.hasSuffix("WebContent") || trimmed.hasSuffix("Networking") || trimmed.hasSuffix("GPU"),
-           trimmed.hasPrefix("com.apple.WebKit") { return "Safari & web views" }
+           trimmed.hasPrefix("com.apple.WebKit") { return "Web content (all apps)" }
         return trimmed
     }
 }
