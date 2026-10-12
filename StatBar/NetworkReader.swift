@@ -4,7 +4,9 @@ import Darwin
 import Foundation
 import SystemConfiguration
 
-struct SystemNetworkReader: @unchecked Sendable {
+// Not Sendable on purpose: the SCDynamicStore session isn't documented as thread-safe,
+// so the compiler should object if this ever leaves the main actor.
+struct SystemNetworkReader {
     /// One dynamic-store session for the app's lifetime; creating one per read was the
     /// biggest remaining cost of the two-second tick.
     private let store = SCDynamicStoreCreate(nil, "StatBar" as CFString, nil, nil)
@@ -156,8 +158,20 @@ struct SystemNetworkReader: @unchecked Sendable {
         .sorted { $0.interfaceName.localizedStandardCompare($1.interfaceName) == .orderedAscending }
     }
 
-    func globalProtectTunnel() -> String? {
-        guard globalProtectServiceIsRunning() else { return nil }
+    /// The GlobalProtect tunnel if connected, nil if not; `known` is false when the process
+    /// table couldn't be read this time, so callers keep their previous answer instead of
+    /// logging a disconnect that didn't happen.
+    func globalProtectStatus() -> (known: Bool, tunnel: String?) {
+        guard let running = globalProtectServiceIsRunning() else { return (false, nil) }
+        guard running else { return (true, nil) }
+        return (true, globalProtectTunnel())
+    }
+
+    static var isGlobalProtectInstalled: Bool {
+        FileManager.default.fileExists(atPath: "/Applications/GlobalProtect.app")
+    }
+
+    private func globalProtectTunnel() -> String? {
 
         var pointer: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&pointer) == 0, let first = pointer else { return nil }
@@ -182,12 +196,15 @@ struct SystemNetworkReader: @unchecked Sendable {
         return flags & requiredFlags == requiredFlags && addressFamily == UInt8(AF_INET)
     }
 
-    private func globalProtectServiceIsRunning() -> Bool {
+    private func globalProtectServiceIsRunning() -> Bool? {
         var mib = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
         var length = 0
-        guard sysctl(&mib, 4, nil, &length, nil, 0) == 0 else { return false }
-        var processes = [kinfo_proc](repeating: kinfo_proc(), count: max(1, length / MemoryLayout<kinfo_proc>.stride))
-        guard sysctl(&mib, 4, &processes, &length, nil, 0) == 0 else { return false }
+        guard sysctl(&mib, 4, nil, &length, nil, 0) == 0 else { return nil }
+        // Headroom for processes started between the two calls.
+        let capacity = length / MemoryLayout<kinfo_proc>.stride + 32
+        var processes = [kinfo_proc](repeating: kinfo_proc(), count: capacity)
+        length = capacity * MemoryLayout<kinfo_proc>.stride
+        guard sysctl(&mib, 4, &processes, &length, nil, 0) == 0 else { return nil }
         let count = length / MemoryLayout<kinfo_proc>.stride
         return processes.prefix(count).contains { process in
             let executableName = withUnsafePointer(to: process.kp_proc.p_comm) { pointer in

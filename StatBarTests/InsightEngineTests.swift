@@ -109,10 +109,13 @@ final class InsightEngineTests: XCTestCase {
 
     func testNearlyFullDisk() {
         var engine = InsightEngine()
-        let full = VolumeInfo(id: "b", name: "Media", url: URL(filePath: "/Volumes/Media"), total: 4_000_000_000_000, available: 30_000_000_000, isInternal: false)
+        let full = VolumeInfo(id: "b", name: "Media", url: URL(filePath: "/Volumes/Media"), total: 4_000_000_000_000, available: 300_000_000_000, isInternal: false)
         engine.update(signals(at: 0) { $0.volumes = [full] })
         XCTAssertEqual(engine.active.first?.title, "Media is almost full")
-        XCTAssertEqual(engine.active.first?.severity, .warning)
+        XCTAssertEqual(engine.active.first?.severity, .warning, "7.5% free warns")
+        let fuller = VolumeInfo(id: "b", name: "Media", url: URL(filePath: "/Volumes/Media"), total: 4_000_000_000_000, available: 30_000_000_000, isInternal: false)
+        engine.update(signals(at: 10) { $0.volumes = [fuller] })
+        XCTAssertEqual(engine.active.first?.severity, .critical, "under 1% free is critical")
     }
 
     func testSevereThingsSortFirst() {
@@ -126,5 +129,70 @@ final class InsightEngineTests: XCTestCase {
             $0.battery = battery(5, plugged: false, flow: -30)
         })
         XCTAssertEqual(engine.active.map(\.severity), [.critical, .warning])
+    }
+}
+
+final class ReviewFixTests: XCTestCase {
+    private let start = Date(timeIntervalSince1970: 2_000_000)
+
+    func testSmallCardsAreNotAlmostFull() {
+        var engine = InsightEngine()
+        let card = VolumeInfo(id: "/Volumes/CARD", name: "CARD", url: URL(filePath: "/Volumes/CARD"),
+                              total: 64_000_000_000, available: 40_000_000_000, isInternal: false)
+        var signals = Signals()
+        signals.now = start
+        signals.volumes = [card]
+        engine.update(signals)
+        XCTAssertTrue(engine.active.isEmpty)
+    }
+
+    func testThrottlingEscalationKeepsOneID() {
+        var engine = InsightEngine()
+        var signals = Signals()
+        signals.now = start
+        signals.thermal = .serious
+        let first = engine.update(signals)
+        signals.now = start.addingTimeInterval(2)
+        signals.thermal = .critical
+        let second = engine.update(signals)
+        XCTAssertEqual(first.count, 1)
+        XCTAssertTrue(second.isEmpty, "serious → critical shouldn't re-notify")
+    }
+
+    func testBatteryHysteresis() {
+        var engine = InsightEngine()
+        func battery(_ percent: Int) -> BatterySnapshot {
+            BatterySnapshot(percent: percent, isCharging: false, isPluggedIn: false, isFull: false,
+                            minutesRemaining: 30, flowWatts: -10, adapterWatts: nil, cycleCount: 1, health: 1)
+        }
+        var signals = Signals()
+        signals.now = start
+        signals.battery = battery(20)
+        engine.update(signals)
+        XCTAssertEqual(engine.active.count, 1)
+        signals.battery = battery(21)
+        engine.update(signals)
+        XCTAssertEqual(engine.active.count, 1, "still shown until 22%")
+        signals.battery = battery(23)
+        engine.update(signals)
+        XCTAssertTrue(engine.active.isEmpty)
+    }
+
+    func testResetAfterSleepRestartsGraceTimers() {
+        var engine = InsightEngine()
+        var signals = Signals()
+        signals.now = start
+        signals.online = false
+        engine.update(signals)
+        engine.resetPending()
+        signals.now = start.addingTimeInterval(3600)
+        engine.update(signals)
+        XCTAssertTrue(engine.active.isEmpty, "an hour asleep doesn't count as an hour offline")
+    }
+
+    func testSMCGarbageIsRejected() {
+        let nan = Float.nan.bitPattern
+        let bytes = [UInt8(nan & 0xFF), UInt8(nan >> 8 & 0xFF), UInt8(nan >> 16 & 0xFF), UInt8(nan >> 24)]
+        XCTAssertNil(FanReader.decode(bytes, type: FanReader.fourCharCode("flt ")))
     }
 }

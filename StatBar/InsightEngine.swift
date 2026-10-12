@@ -49,6 +49,7 @@ struct InsightEngine {
         var criticalBattery = 10
         var lowDiskFraction = 0.1
         var lowDiskBytes: Int64 = 50_000_000_000
+        var largeVolumeBytes: Int64 = 500_000_000_000
         var swapGrowthBytes: UInt64 = 2_000_000_000
         var swapWindow: TimeInterval = 600
         var longSleepBlock: TimeInterval = 30 * 60
@@ -69,6 +70,7 @@ struct InsightEngine {
     private var lastVPN: Bool?
     private var swapSamples: [(Date, UInt64)] = []
     private var blockerSince: [String: Date] = [:]
+    private var eventCounter = 0
 
     static let maxEvents = 12
 
@@ -179,7 +181,8 @@ struct InsightEngine {
         guard let since = sustained("heat", hot || signals.thermal == .fair, for: hot ? 0 : 60, now: now) else { return [] }
         let culprit = lastProcesses.max { $0.cpu < $1.cpu }
         return [Insight(
-            id: "heat|\(signals.thermal.rawValue)",
+            // One id for both throttling levels, so serious → critical doesn't notify twice.
+            id: hot ? "heat|hot" : "heat|warm",
             severity: hot ? .warning : .info,
             symbol: "thermometer.high",
             title: hot ? "Your Mac is throttling to cool down" : "Your Mac is running warm",
@@ -192,7 +195,11 @@ struct InsightEngine {
     private mutating func batteryConditions(_ signals: Signals, now: Date) -> [Insight] {
         guard let battery = signals.battery else { return [] }
         var insights: [Insight] = []
-        if !battery.isPluggedIn, battery.percent <= thresholds.lowBattery {
+        // Hysteresis: enter at 20%, leave at 22%, so a battery hovering on the line
+        // doesn't flicker in and out of the list.
+        let wasLow = active.contains { $0.id.hasPrefix("battery|") }
+        let limit = wasLow ? thresholds.lowBattery + 2 : thresholds.lowBattery
+        if let since = sustained("battery", !battery.isPluggedIn && battery.percent <= limit, for: 0, now: now) {
             let critical = battery.percent <= thresholds.criticalBattery
             insights.append(Insight(
                 id: critical ? "battery|critical" : "battery|low",
@@ -200,7 +207,7 @@ struct InsightEngine {
                 symbol: critical ? "battery.0percent" : "battery.25percent",
                 title: "Battery at \(battery.percent)%",
                 detail: battery.remainingLabel.map { "\($0) at the current draw." },
-                since: now,
+                since: since,
                 notifies: true
             ))
         }
@@ -223,12 +230,16 @@ struct InsightEngine {
 
     private func diskConditions(_ signals: Signals, now: Date) -> [Insight] {
         (signals.volumes ?? lastVolumes ?? []).compactMap { volume in
-            let low = Double(volume.available) / Double(max(volume.total, 1)) < thresholds.lowDiskFraction
-                || volume.available < thresholds.lowDiskBytes
+            // The absolute floor only applies to big drives; otherwise every camera card
+            // or USB stick would count as "almost full" the moment it mounts.
+            let fraction = Double(volume.available) / Double(max(volume.total, 1))
+            let isLarge = volume.total >= thresholds.largeVolumeBytes
+            let low = fraction < thresholds.lowDiskFraction || (isLarge && volume.available < thresholds.lowDiskBytes)
             guard low else { return nil }
+            let critical = fraction < thresholds.lowDiskFraction / 2 || (isLarge && volume.available < thresholds.lowDiskBytes / 5)
             return Insight(
                 id: "disk|\(volume.id)",
-                severity: volume.available < thresholds.lowDiskBytes / 5 ? .critical : .warning,
+                severity: critical ? .critical : .warning,
                 symbol: "externaldrive.badge.exclamationmark",
                 title: "\(volume.name) is almost full",
                 detail: "\(Self.diskBytes(volume.available)) free of \(Self.diskBytes(volume.total)).",
@@ -327,8 +338,17 @@ struct InsightEngine {
         }
     }
 
+    /// Forgets half-elapsed timers, e.g. after the displays slept, so time asleep doesn't
+    /// count toward "offline for 5 s" or "kept awake for 30 min".
+    mutating func resetPending() {
+        firstSeen = [:]
+        blockerSince = [:]
+        swapSamples = []
+    }
+
     private mutating func log(_ title: String, detail: String? = nil, symbol: String, severity: Insight.Severity, now: Date) {
-        events.insert(Insight(id: "event|\(now.timeIntervalSince1970)|\(title)", severity: severity, symbol: symbol,
+        eventCounter &+= 1
+        events.insert(Insight(id: "event|\(eventCounter)", severity: severity, symbol: symbol,
                               title: title, detail: detail, since: now, notifies: false), at: 0)
         if events.count > Self.maxEvents { events.removeLast(events.count - Self.maxEvents) }
     }

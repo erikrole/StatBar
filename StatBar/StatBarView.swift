@@ -211,7 +211,9 @@ struct StatBarView: View {
                 ].compactMap { $0 }.joined(separator: " · "))
                 if let address = network.localAddress { StatRow("IP address", address) }
                 if let router = network.routerAddress { StatRow("Router", router) }
-                StatRow("VPN", network.vpnTunnel == nil ? "GlobalProtect off" : "GlobalProtect connected")
+                if SystemNetworkReader.isGlobalProtectInstalled {
+                    StatRow("VPN", network.vpnTunnel == nil ? "GlobalProtect off" : "GlobalProtect connected")
+                }
             }
             .font(.caption)
         }

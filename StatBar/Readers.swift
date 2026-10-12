@@ -36,6 +36,10 @@ struct CPUReader {
             let name = sysctlString("hw.perflevel\(level).name") ?? "Level \(level)"
             if count > 0 { groups.append(CoreGroup(name: name, coreCount: count)) }
         }
+        // Intel Macs have no perflevel sysctls; show every core as one group.
+        if groups.isEmpty, let cores = sysctlInt("hw.logicalcpu"), cores > 0 {
+            groups = [CoreGroup(name: "Cores", coreCount: cores)]
+        }
         return groups
     }
 
@@ -229,16 +233,42 @@ enum DiskReader {
             }
             guard path == "/" || (path.hasPrefix("/Volumes/") && path.split(separator: "/").count == 2) else { continue }
             let blockSize = Int64(entry.f_bsize)
+            let identity = volumeIdentity(path)
             result.append(VolumeInfo(
                 id: path,
-                name: path == "/" ? "Macintosh HD" : URL(filePath: path).lastPathComponent,
+                name: identity.name,
                 url: URL(filePath: path),
                 total: Int64(entry.f_blocks) * blockSize,
                 available: Int64(entry.f_bavail) * blockSize,
-                isInternal: path == "/"
+                isInternal: identity.isInternal
             ))
         }
         return result
+    }
+
+    // NSCache is documented as thread-safe; it's read from the background detail task.
+    nonisolated(unsafe) private static let identityCache = NSCache<NSString, VolumeIdentity>()
+
+    /// The volume's real (possibly renamed or localized) name and whether it's internal,
+    /// looked up once per mount path.
+    private static func volumeIdentity(_ path: String) -> (name: String, isInternal: Bool) {
+        if let cached = identityCache.object(forKey: path as NSString) { return (cached.name, cached.isInternal) }
+        let values = try? URL(filePath: path).resourceValues(forKeys: [.volumeNameKey, .volumeIsInternalKey])
+        let identity = VolumeIdentity(
+            name: values?.volumeName ?? URL(filePath: path).lastPathComponent,
+            isInternal: values?.volumeIsInternal ?? (path == "/")
+        )
+        identityCache.setObject(identity, forKey: path as NSString)
+        return (identity.name, identity.isInternal)
+    }
+
+    private final class VolumeIdentity: NSObject {
+        let name: String
+        let isInternal: Bool
+        init(name: String, isInternal: Bool) {
+            self.name = name
+            self.isInternal = isInternal
+        }
     }
 
     /// Total bytes read and written by every block device since boot.
@@ -313,7 +343,9 @@ final class FanReader {
         case fourCharCode("flt "):
             guard bytes.count >= 4 else { return nil }
             let bits = UInt32(bytes[0]) | UInt32(bytes[1]) << 8 | UInt32(bytes[2]) << 16 | UInt32(bytes[3]) << 24
-            return Double(Float(bitPattern: bits))
+            let value = Double(Float(bitPattern: bits))
+            // Garbage bytes can decode to NaN or infinity, which would trap in Int(rpm).
+            return value.isFinite && value >= 0 ? value : nil
         case fourCharCode("fpe2"):
             guard bytes.count >= 2 else { return nil }
             return Double(UInt16(bytes[0]) << 8 | UInt16(bytes[1])) / 4

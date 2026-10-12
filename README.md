@@ -14,7 +14,8 @@ covers the whole machine.
   - memory pressure, naming the biggest app, and swap growing fast;
   - the Mac running warm or throttling, naming the busiest app;
   - battery under 20% or 10% on battery, or a charger that can't keep up while plugged in;
-  - any drive under 10% or 50 GB free;
+  - any drive under 10% free, or under 50 GB on drives of 500 GB or more (so camera
+    cards and USB sticks don't trip it);
   - being offline for more than a few seconds;
   - the GPU pinned for two minutes, or an app keeping the Mac awake for half an hour;
   - events as they happen: a drive mounting or ejecting, going offline and back,
