@@ -129,8 +129,8 @@ struct InsightEngine {
                 id: "runaway|\(process.name)",
                 severity: .info,
                 symbol: "flame",
-                title: "\(process.name) is using \(Self.cores(process.cpu)) cores",
-                detail: "For \(Self.duration(now.timeIntervalSince(since))). Expected during a render or export.",
+                title: "\(process.name) is using \(Format.cores(process.cpu)) cores",
+                detail: "For \(Format.duration(now.timeIntervalSince(since))). Expected during a render or export.",
                 since: since,
                 notifies: false
             ))
@@ -145,13 +145,13 @@ struct InsightEngine {
 
         if memory.pressure != .normal,
            let since = sustained("memory", true, for: memory.pressure == .critical ? 0 : 20, now: now) {
-            let culprit = topMemory.map { "\($0.name) is using the most (\(Self.bytes($0.memory)))." } ?? ""
+            let culprit = topMemory.map { "\($0.name) is using the most (\(Format.bytes($0.memory)))." } ?? ""
             insights.append(Insight(
                 id: "memory|\(memory.pressure.rawValue)",
                 severity: memory.pressure == .critical ? .critical : .warning,
                 symbol: "memorychip",
                 title: memory.pressure == .critical ? "Memory is critically low" : "Memory is under pressure",
-                detail: "\(culprit) Swap is \(Self.bytes(memory.swapUsed)).".trimmingCharacters(in: .whitespaces),
+                detail: "\(culprit) Swap is \(Format.bytes(memory.swapUsed)).".trimmingCharacters(in: .whitespaces),
                 since: since,
                 notifies: memory.pressure == .critical
             ))
@@ -167,8 +167,8 @@ struct InsightEngine {
                 id: "swap",
                 severity: .info,
                 symbol: "arrow.up.right",
-                title: "Swap grew \(Self.bytes(memory.swapUsed - oldest.1)) in \(Self.duration(now.timeIntervalSince(oldest.0)))",
-                detail: topMemory.map { "\($0.name) is the largest app at \(Self.bytes($0.memory))." },
+                title: "Swap grew \(Format.bytes(memory.swapUsed - oldest.1)) in \(Format.duration(now.timeIntervalSince(oldest.0)))",
+                detail: topMemory.map { "\($0.name) is the largest app at \(Format.bytes($0.memory))." },
                 since: oldest.0,
                 notifies: false
             ))
@@ -186,7 +186,7 @@ struct InsightEngine {
             severity: hot ? .warning : .info,
             symbol: "thermometer.high",
             title: hot ? "Your Mac is throttling to cool down" : "Your Mac is running warm",
-            detail: culprit.map { "\($0.name) is the busiest app (\(Self.cores($0.cpu)) cores)." },
+            detail: culprit.map { "\($0.name) is the busiest app (\(Format.cores($0.cpu)) cores)." },
             since: since,
             notifies: hot
         )]
@@ -220,7 +220,7 @@ struct InsightEngine {
                 severity: .warning,
                 symbol: "powerplug",
                 title: "\(charger) can't keep up",
-                detail: "The battery is still draining \(String(format: "%.0f", abs(battery.flowWatts ?? 0))) W while plugged in. Use a stronger charger or ease the load.",
+                detail: "The battery is still draining \(Format.wholeWatts(battery.flowWatts ?? 0)) while plugged in. Use a stronger charger or ease the load.",
                 since: since,
                 notifies: true
             ))
@@ -242,7 +242,7 @@ struct InsightEngine {
                 severity: critical ? .critical : .warning,
                 symbol: "externaldrive.badge.exclamationmark",
                 title: "\(volume.name) is almost full",
-                detail: "\(Self.diskBytes(volume.available)) free of \(Self.diskBytes(volume.total)).",
+                detail: "\(Format.diskBytes(volume.available)) free of \(Format.diskBytes(volume.total)).",
                 since: now,
                 notifies: true
             )
@@ -269,7 +269,7 @@ struct InsightEngine {
             severity: .info,
             symbol: "square.stack.3d.up",
             title: "GPU fully busy",
-            detail: "For \(Self.duration(now.timeIntervalSince(since))).",
+            detail: "For \(Format.duration(now.timeIntervalSince(since))).",
             since: since,
             notifies: false
         )]
@@ -291,7 +291,7 @@ struct InsightEngine {
                 id: "awake|\(process)",
                 severity: .info,
                 symbol: "moon.zzz",
-                title: "\(process) has kept your Mac awake for \(Self.duration(now.timeIntervalSince(since)))",
+                title: "\(process) has kept your Mac awake for \(Format.duration(now.timeIntervalSince(since)))",
                 detail: lastBlockers.first { $0.process == process }?.reason,
                 since: since,
                 notifies: false
@@ -327,7 +327,7 @@ struct InsightEngine {
                 let before = Set(lastVolumes.map(\.id))
                 let after = Set(volumes.map(\.id))
                 for volume in volumes where !before.contains(volume.id) {
-                    log("\(volume.name) mounted", detail: "\(Self.diskBytes(volume.available)) free", symbol: "externaldrive.badge.plus",
+                    log("\(volume.name) mounted", detail: "\(Format.diskBytes(volume.available)) free", symbol: "externaldrive.badge.plus",
                         severity: .info, now: now)
                 }
                 for volume in lastVolumes where !after.contains(volume.id) {
@@ -355,29 +355,9 @@ struct InsightEngine {
         if events.count > Self.maxEvents { events.removeLast(events.count - Self.maxEvents) }
     }
 
-    // MARK: - Formatting
+    // MARK: - Classification
 
     static func isSystemProcess(_ name: String) -> Bool {
         ["kernel_task", "WindowServer", "launchd", "mds_stores", "mds", "mdworker_shared", "backupd"].contains(name)
-    }
-
-    static func cores(_ cpuPercent: Double) -> String {
-        String(format: cpuPercent >= 1000 ? "%.0f" : "%.1f", cpuPercent / 100)
-    }
-
-    static func duration(_ seconds: TimeInterval) -> String {
-        let minutes = Int(seconds / 60)
-        if minutes < 1 { return "under a minute" }
-        if minutes < 60 { return "\(minutes) min" }
-        let hours = minutes / 60
-        return minutes % 60 == 0 ? "\(hours) h" : "\(hours) h \(minutes % 60) min"
-    }
-
-    static func bytes(_ value: UInt64) -> String {
-        ByteCountFormatter.string(fromByteCount: Int64(clamping: value), countStyle: .memory)
-    }
-
-    static func diskBytes(_ value: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
     }
 }

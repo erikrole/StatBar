@@ -101,9 +101,17 @@ enum GPUReader {
                 .takeRetainedValue() as? [String: Any],
                 let percent = (stats["Device Utilization %"] as? NSNumber)?.doubleValue
             else { continue }
-            best = max(best ?? 0, percent / 100)
+            guard let fraction = Self.fraction(fromDevicePercent: percent) else { continue }
+            best = max(best ?? 0, fraction)
         }
         return best
+    }
+
+    /// Device utilization is reported as a percentage. Non-finite or out-of-range
+    /// samples must not reach the menu bar, where `Int` conversion would trap.
+    static func fraction(fromDevicePercent percent: Double) -> Double? {
+        guard percent.isFinite else { return nil }
+        return min(max(percent / 100, 0), 1)
     }
 }
 
@@ -131,7 +139,19 @@ struct MemorySnapshot: Equatable, Sendable {
     let swapTotal: UInt64
     let pressure: Pressure
 
-    var usedFraction: Double { total == 0 ? 0 : Double(used) / Double(total) }
+    var usedFraction: Double {
+        guard total > 0 else { return 0 }
+        return min(max(Double(used) / Double(total), 0), 1)
+    }
+
+    /// `kern.memorystatus_vm_pressure_level` is 1, 2 or 4. Anything in between still
+    /// means the machine is no longer idle.
+    static func pressure(forLevel level: Int) -> Pressure {
+        if let known = Pressure(rawValue: level) { return known }
+        if level >= 4 { return .critical }
+        if level >= 2 { return .warning }
+        return .normal
+    }
 }
 
 enum MemoryReader {
@@ -166,7 +186,7 @@ enum MemoryReader {
             cached: cached * page,
             swapUsed: swap.xsu_used,
             swapTotal: swap.xsu_total,
-            pressure: MemorySnapshot.Pressure(rawValue: level) ?? (level >= 4 ? .critical : .normal)
+            pressure: MemorySnapshot.pressure(forLevel: level)
         )
     }
 }
@@ -181,7 +201,12 @@ struct VolumeInfo: Identifiable, Equatable, Sendable {
     let available: Int64
     let isInternal: Bool
 
-    var usedFraction: Double { total == 0 ? 0 : 1 - Double(available) / Double(total) }
+    var usedFraction: Double {
+        guard total > 0 else { return 0 }
+        let fraction = 1 - Double(available) / Double(total)
+        guard fraction.isFinite else { return 0 }
+        return min(max(fraction, 0), 1)
+    }
 }
 
 enum DiskReader {
@@ -314,10 +339,23 @@ final class FanReader {
         if connection != 0 { IOServiceClose(connection) }
     }
 
+    /// Above this, the SMC returned garbage. `Int(rpm)` in the popover would trap.
+    static let maxPlausibleRPM = 12_000.0
+
+    static func fanCount(_ value: Double) -> Int? {
+        guard value.isFinite, value >= 1, value <= 4 else { return nil }
+        return Int(value)
+    }
+
+    static func plausibleRPM(_ value: Double) -> Double? {
+        guard value.isFinite, value >= 0, value <= maxPlausibleRPM else { return nil }
+        return value
+    }
+
     /// Current speed of each fan in RPM; empty on Macs without fans.
     func speeds() -> [Double] {
-        guard let count = readValue("FNum").map({ Int($0) }), count > 0 else { return [] }
-        return (0..<min(count, 4)).compactMap { readValue("F\($0)Ac") }
+        guard let count = readValue("FNum").flatMap(Self.fanCount) else { return [] }
+        return (0..<count).compactMap { readValue("F\($0)Ac").flatMap(Self.plausibleRPM) }
     }
 
     private func readValue(_ key: String) -> Double? {
@@ -470,12 +508,14 @@ enum ProcessReader {
         var groups: [String: (cpu: Double, memory: UInt64, count: Int)] = [:]
         for line in output.split(separator: "\n") {
             let parts = line.split(separator: " ", maxSplits: 3, omittingEmptySubsequences: true)
-            guard parts.count == 4, let pid = Int32(parts[0]), let cpu = Double(parts[1]),
+            guard parts.count == 4, let pid = Int32(parts[0]),
+                  let cpu = Double(parts[1]), cpu.isFinite, cpu >= 0,
                   let rssKB = UInt64(parts[2]) else { continue }
             let name = path(pid).flatMap(outermostAppName) ?? appName(String(parts[3]))
+            let bytes = rssKB > UInt64.max / 1024 ? UInt64.max : rssKB * 1024
             var entry = groups[name] ?? (0, 0, 0)
             entry.cpu += cpu
-            entry.memory += rssKB * 1024
+            entry.memory = entry.memory > UInt64.max - bytes ? UInt64.max : entry.memory + bytes
             entry.count += 1
             groups[name] = entry
         }

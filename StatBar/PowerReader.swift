@@ -29,7 +29,14 @@ struct BatterySnapshot: Equatable, Sendable {
         guard let minutesRemaining, minutesRemaining > 0, !isFull else { return nil }
         let hours = minutesRemaining / 60
         let minutes = minutesRemaining % 60
-        let time = hours > 0 ? "\(hours) h \(minutes) min" : "\(minutes) min"
+        let time: String
+        if hours == 0 {
+            time = "\(minutes) min"
+        } else if minutes == 0 {
+            time = "\(hours) h"
+        } else {
+            time = "\(hours) h \(minutes) min"
+        }
         return isCharging ? "\(time) to full" : "\(time) left"
     }
 }
@@ -65,7 +72,10 @@ enum PowerReader {
         func bool(_ key: String) -> Bool { (battery[key] as? NSNumber)?.boolValue ?? false }
 
         guard let current = int("CurrentCapacity"), let max = int("MaxCapacity"), max > 0 else { return nil }
-        let percent = Int((Double(current) / Double(max) * 100).rounded())
+        let ratio = Double(current) / Double(max) * 100
+        // Clamp before Int(_:). A broken capacity pair can be far outside 0...100
+        // and the conversion traps.
+        let percent = ratio.isFinite ? Int(min(max(ratio.rounded(), 0), 100)) : 0
         let isCharging = bool("IsCharging")
         let timeKey = isCharging ? "AvgTimeToFull" : "AvgTimeToEmpty"
         // 65535 means "still calculating".
@@ -74,8 +84,9 @@ enum PowerReader {
         let millivolts = int("Voltage")
         let milliamps = int("InstantAmperage") ?? int("Amperage")
         let flow = millivolts.flatMap { mv in milliamps.map { Double(mv) * Double($0) / 1_000_000 } }
+            .flatMap { $0.isFinite ? $0 : nil }
 
-        let adapter = (battery["AdapterDetails"] as? [String: Any])?["Watts"] as? NSNumber
+        let adapterWatts = ((battery["AdapterDetails"] as? [String: Any])?["Watts"] as? NSNumber)?.intValue
         // Recent macOS keeps the mAh figures inside BatteryData; System Settings' Maximum
         // Capacity is nominal charge capacity over design capacity.
         let data = battery["BatteryData"] as? [String: Any] ?? [:]
@@ -83,6 +94,10 @@ enum PowerReader {
         let rawMax = dataInt("NominalChargeCapacity") ?? dataInt("AppleRawMaxCapacity")
         let design = dataInt("DesignCapacity")
         let health = rawMax.flatMap { raw in design.flatMap { $0 > 0 ? Double(raw) / Double($0) : nil } }
+        let healthFraction = health.flatMap { value -> Double? in
+            guard value.isFinite, value >= 0 else { return nil }
+            return min(value, 1)
+        }
 
         return BatterySnapshot(
             percent: min(100, Swift.max(0, percent)),
@@ -91,9 +106,9 @@ enum PowerReader {
             isFull: bool("FullyCharged"),
             minutesRemaining: minutes,
             flowWatts: flow,
-            adapterWatts: bool("ExternalConnected") ? adapter?.intValue : nil,
+            adapterWatts: bool("ExternalConnected") ? adapterWatts.flatMap { $0 > 0 ? $0 : nil } : nil,
             cycleCount: int("CycleCount").map(Int.init),
-            health: health.map { Swift.min($0, 1) }
+            health: healthFraction
         )
     }
 

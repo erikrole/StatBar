@@ -6,26 +6,29 @@ from-scratch take on the idea behind iStat Menus, and it absorbs the battery and
 network views that used to live in PowerBar and NetBar, so one menu bar item
 covers the whole machine.
 
-- **Menu bar:** CPU percentage beside a gauge that turns yellow or red with memory pressure.
+- **Menu bar:** CPU percentage beside a gauge. The item is a fixed width and is redrawn
+  only when that percentage or the attention state changes. A warning replaces the
+  gauge with a yellow triangle; a critical condition uses a red one.
 - **Now:** a short list of what needs attention, most serious first, and a log of what
   just happened. Conditions have to hold for a while before they show, so one busy
   second never flickers in:
-  - an app using more than 1.5 cores for a minute (informational; renders do this);
+  - an app using at least 1.5 cores for a minute (informational; renders do this);
   - memory pressure, naming the biggest app, and swap growing fast;
   - the Mac running warm or throttling, naming the busiest app;
   - battery under 20% or 10% on battery, or a charger that can't keep up while plugged in;
   - any drive under 10% free, or under 50 GB on drives of 500 GB or more (so camera
     cards and USB sticks don't trip it);
   - being offline for more than a few seconds;
-  - the GPU pinned for two minutes, or an app keeping the Mac awake for half an hour;
+  - the GPU at 90% or higher for two minutes, or an app keeping the Mac awake for half an hour;
   - events as they happen: a drive mounting or ejecting, going offline and back,
     switching Wi-Fi and Ethernet, GlobalProtect connecting or dropping.
 
-  Warnings and above tint the menu bar gauge. Serious ones (offline, low battery, a
-  struggling charger, a nearly full disk, critical memory, throttling) can also send
+  Warnings and above replace the menu bar gauge with a triangle. Serious ones
+  (offline, low battery, a struggling charger, a nearly full disk, critical memory,
+  throttling) can also send
   a notification, at most once per condition every 30 minutes; Alerts in the
   footer settings menu turns that off.
-- **CPU and GPU:** side-by-side load summaries with two-minute histories. Expand
+- **CPU and GPU:** side-by-side load summaries with about two minutes of history. Expand
   CPU cores for each core group (Super and Performance on M5) and per-core bars.
 - **Memory:** pressure and used memory at a glance; expand for compressed memory,
   cached files and swap. Uses Activity Monitor's definition of Memory Used.
@@ -46,13 +49,17 @@ click away; its settings menu contains Alerts, Launch at login and Quit StatBar.
 Everything is read through public, unprivileged interfaces (Mach host statistics,
 sysctl, the IORegistry, IOKit power assertions, SystemConfiguration, read-only SMC
 fan keys and `ps`). The network reader is adapted from NetBar's. There is no privileged
-helper. CPU, GPU, memory and network throughput sample every two seconds. Battery
-samples every ten seconds in the background and every two seconds with the popover
-open. Detail readings refresh at startup, after wake, and every thirty seconds in
-the background; opening the popover refreshes detail every two seconds, with the
-full app list normally refreshing every ten seconds. Sampling pauses when
-the displays sleep. A stalled disk or process read retains one worker slot until
-it returns; fast readings, fans and network details continue independently.
+helper. CPU, GPU, memory and network throughput share one timer, sampling every two
+seconds. With the popover closed that timer allows a one-second leeway so the system
+can coalesce the wake; with the popover open the leeway is a quarter of a second.
+Battery samples every ten seconds in the background and every two seconds with the
+popover open. Detail readings refresh at startup, after wake, and every thirty
+seconds in the background; opening the popover refreshes detail every two seconds,
+with the full app list normally refreshing every ten seconds. Sampling pauses when
+the displays sleep, and the network path monitor is cancelled with it. A stalled
+disk or process read retains one worker slot until it returns; fast readings, fans
+and network details continue independently. The popover's view exists only while it
+is open.
 
 The compact overview fits CPU, GPU, memory, power and network in the first
 360 × 600-point view when there are no active alerts. Additional details, disks,
@@ -93,6 +100,9 @@ the saved disclosure preferences.
 ```sh
 ./scripts/check-macos.sh test
 ```
+
+The suite includes `MetricFormatTests`, which covers parsing and formatting for CPU,
+GPU, memory, power, network, disk and heat without reading the live machine.
 
 For optimized reader benchmarks (median and p95, with no machine-specific pass/fail
 thresholds):

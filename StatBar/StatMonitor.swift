@@ -17,8 +17,18 @@ final class StatMonitor {
         var id: String { name }
     }
 
-    static let historyLength = 60
-    static let interval: TimeInterval = 2
+    nonisolated static let historyLength = 60
+    /// One sample period for CPU, GPU, memory and network throughput. Sixty samples
+    /// are about two minutes of history. The timer may slip by its tolerance.
+    nonisolated static let interval: TimeInterval = 2
+    /// Popover closed: let the kernel group this wake with other system timers.
+    nonisolated static let idleSamplingTolerance: TimeInterval = 1
+    /// Popover open: the graphs should keep moving, with a little room to coalesce.
+    nonisolated static let activeSamplingTolerance: TimeInterval = 0.25
+
+    nonisolated static func samplingTolerance(popoverVisible: Bool) -> TimeInterval {
+        popoverVisible ? activeSamplingTolerance : idleSamplingTolerance
+    }
 
     private(set) var cpu: Double = 0
     private(set) var coreGroups: [CoreGroupLoad] = []
@@ -76,7 +86,9 @@ final class StatMonitor {
     private let fans = FanReader()
     private var lastIO: (read: UInt64, write: UInt64, at: Date)?
     private var samplingTask: Task<Void, Never>?
-    private var pathTask: Task<Void, Never>?
+    private var pathMonitor: NWPathMonitor?
+    /// Called once per sample so the menu bar can skip a redraw when nothing visible changed.
+    var onSample: (() -> Void)?
     private var detailTask: Task<Void, Never>?
     private var isPopoverVisible = false
     private var detailRound = 0
@@ -109,7 +121,7 @@ final class StatMonitor {
 
     isolated deinit {
         samplingTask?.cancel()
-        pathTask?.cancel()
+        pathMonitor?.cancel()
         detailTask?.cancel()
     }
 
@@ -125,13 +137,25 @@ final class StatMonitor {
     }
 
     private func startPathMonitoring() {
-        pathTask?.cancel()
-        pathTask = Task { [weak self] in
-            for await path in NWPathMonitor() {
-                guard !Task.isCancelled, let self, !self.isPaused else { return }
-                self.internetReachable = path.status == .satisfied
+        stopPathMonitoring()
+        guard !isPaused else { return }
+        let monitor = NWPathMonitor()
+        pathMonitor = monitor
+        // One evaluator for the life of a wake. The handler only publishes when the
+        // up/down bit changes, so a repeated path callback does not wake the UI.
+        monitor.pathUpdateHandler = { [weak self] path in
+            let online = path.status == .satisfied
+            Task { @MainActor in
+                guard let self, !self.isPaused, self.internetReachable != online else { return }
+                self.internetReachable = online
             }
         }
+        monitor.start(queue: DispatchQueue.global(qos: .utility))
+    }
+
+    private func stopPathMonitoring() {
+        pathMonitor?.cancel()
+        pathMonitor = nil
     }
 
     func setPopoverVisible(_ visible: Bool) {
@@ -143,12 +167,18 @@ final class StatMonitor {
     }
 
     private func tick(refreshDetail: Bool = false) {
-        sampleFast()
-        thermalState = ProcessInfo.processInfo.thermalState
-        // Detail every tick while you're looking, otherwise every 30 s so StatBar can
-        // still notice a runaway app, a full disk or a mounted drive on its own.
-        if refreshDetail || isPopoverVisible || tickCount % 15 == 0 { sampleDetail() }
-        evaluateInsights()
+        // The sample runs inside a Swift task, which does not drain an autorelease
+        // pool each iteration. IOKit and Foundation temporaries would otherwise sit
+        // in the idle footprint.
+        autoreleasepool {
+            sampleFast()
+            thermalState = ProcessInfo.processInfo.thermalState
+            // Detail every tick while you're looking, otherwise every 30 s so StatBar can
+            // still notice a runaway app, a full disk or a mounted drive on its own.
+            if refreshDetail || isPopoverVisible || tickCount % 15 == 0 { sampleDetail() }
+            evaluateInsights()
+        }
+        onSample?()
     }
 
     private func evaluateInsights() {
@@ -349,23 +379,26 @@ final class StatMonitor {
 
     nonisolated private static func readDetail(thorough: Bool, refreshProcesses: Bool, sampler: QuickProcessSampler) async -> DetailSnapshot? {
         guard !Task.isCancelled else { return nil }
-        var sampler = sampler
-        // Alerts always judge free space from the kernel figure, so opening the popover
-        // (which shows Finder's figure, including purgeable space) can't flip them.
-        let quick = DiskReader.quickVolumes()
-        guard !Task.isCancelled else { return nil }
-        let volumes = thorough ? DiskReader.volumes() : quick
-        guard !Task.isCancelled else { return nil }
-        let totals = DiskReader.ioTotals()
-        let totalsAt = Date()
-        let blockers = PowerReader.sleepBlockers()
-        guard !Task.isCancelled else { return nil }
-        var processes: [ProcessUsage]?
-        if refreshProcesses {
-            processes = thorough ? ProcessReader.sample() : sampler.sample()
+        return autoreleasepool {
+            var sampler = sampler
+            guard !Task.isCancelled else { return nil }
+            // Alerts always judge free space from the kernel figure, so opening the popover
+            // (which shows Finder's figure, including purgeable space) can't flip them.
+            let quick = DiskReader.quickVolumes()
+            guard !Task.isCancelled else { return nil }
+            let volumes = thorough ? DiskReader.volumes() : quick
+            guard !Task.isCancelled else { return nil }
+            let totals = DiskReader.ioTotals()
+            let totalsAt = Date()
+            let blockers = PowerReader.sleepBlockers()
+            guard !Task.isCancelled else { return nil }
+            var processes: [ProcessUsage]?
+            if refreshProcesses {
+                processes = thorough ? ProcessReader.sample() : sampler.sample()
+            }
+            return DetailSnapshot(volumes: volumes, alertVolumes: quick, totals: totals, totalsAt: totalsAt,
+                                  blockers: blockers, processes: processes, sampler: thorough ? nil : sampler)
         }
-        return DetailSnapshot(volumes: volumes, alertVolumes: quick, totals: totals, totalsAt: totalsAt,
-                              blockers: blockers, processes: processes, sampler: thorough ? nil : sampler)
     }
 
     private func completeDetail(round: Int, snapshot: DetailSnapshot?) {
@@ -413,8 +446,7 @@ final class StatMonitor {
         if paused {
             samplingTask?.cancel()
             samplingTask = nil
-            pathTask?.cancel()
-            pathTask = nil
+            stopPathMonitoring()
             detailTask?.cancel()
             detailRound &+= 1
         } else {
@@ -445,13 +477,14 @@ final class StatMonitor {
         engine.resetPending()
     }
 
-    /// Ticks every `interval` on the main actor; a sleeping task keeps sampling alive
-    /// while the popover scrolls, with the same tolerance the old timer had.
+    /// One sleep for every reading. Tolerance lets the kernel coalesce the wake;
+    /// it is larger while the popover is closed.
     private func startSampling() {
         samplingTask?.cancel()
         samplingTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(Self.interval), tolerance: .seconds(Self.interval * 0.15))
+                let tolerance = Self.samplingTolerance(popoverVisible: self?.isPopoverVisible == true)
+                try? await Task.sleep(for: .seconds(Self.interval), tolerance: .seconds(tolerance))
                 guard !Task.isCancelled, let self else { return }
                 self.tick()
             }
@@ -465,24 +498,45 @@ final class StatMonitor {
 
     // MARK: - Menu bar text
 
-    var menuBarText: String {
-        "\(Int((cpu * 100).rounded()))%"
+    /// What the status item actually draws. Equal values must not touch the button:
+    /// assigning an image or title marks the menu bar dirty in WindowServer.
+    var menuBarPresentation: MenuBarPresentation {
+        MenuBarPresentation.make(cpu: cpu, attention: attentionLevel)
     }
 
     var accessibilitySummary: String {
-        var parts = ["CPU \(Int((cpu * 100).rounded())) percent"]
-        if let gpu { parts.append("GPU \(Int((gpu * 100).rounded())) percent") }
+        var parts = ["CPU \(Format.percentValue(cpu).map(String.init) ?? "unavailable") percent"]
+        if let gpu, let value = Format.percentValue(gpu) {
+            parts.append("GPU \(value) percent")
+        }
         if let memory { parts.append("memory pressure \(memory.pressure.label.lowercased())") }
         return "StatBar: " + parts.joined(separator: ", ")
     }
 
-    var thermalLabel: String {
-        switch thermalState {
-        case .nominal: "Cool"
-        case .fair: "Warm"
-        case .serious: "Hot, throttling"
-        case .critical: "Critical, throttling hard"
-        @unknown default: "Unknown"
+    var thermalLabel: String { Format.thermal(thermalState) }
+}
+
+enum MenuBarAttention: Hashable {
+    case none, warning, critical
+
+    var symbolName: String {
+        switch self {
+        case .none: "gauge.with.dots.needle.33percent"
+        case .warning, .critical: "exclamationmark.triangle"
         }
+    }
+}
+
+struct MenuBarPresentation: Equatable {
+    var title: String
+    var attention: MenuBarAttention
+
+    static func make(cpu: Double, attention: Insight.Severity?) -> MenuBarPresentation {
+        let level: MenuBarAttention = switch attention {
+        case .critical: .critical
+        case .warning: .warning
+        default: .none
+        }
+        return MenuBarPresentation(title: Format.percent(cpu), attention: level)
     }
 }
