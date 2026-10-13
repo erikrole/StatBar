@@ -58,6 +58,15 @@ The compact overview fits CPU, GPU, memory, power and network in the first
 360 × 600-point view when there are no active alerts. Additional details, disks,
 heat and the app list remain available by expanding or scrolling.
 
+## Install
+
+Download [StatBar 0.1.0](https://github.com/erikrole/StatBar/releases/tag/v0.1.0),
+expand the ZIP, move `StatBar.app` into Applications, and open it. The app appears
+in the menu bar. Requires Apple Silicon and macOS 27 or later.
+
+The release is Developer ID-signed and notarized, with its ticket stapled. A
+SHA-256 checksum file is attached to the release alongside the ZIP.
+
 ## Build and run
 
 Requirements: macOS 27 or later, Xcode, and XcodeGen.

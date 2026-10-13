@@ -1,7 +1,7 @@
 # StatBar roadmap
 
-Current focus: hardware and interaction validation after the first local signed,
-notarized 0.1.0 build. The compact overview, remembered detail disclosures and
+Current focus: hardware and interaction validation after the published signed,
+notarized 0.1.0 release. The compact overview, remembered detail disclosures and
 simplified footer are implemented.
 
 - Keep deterministic coverage for pause/resume, delayed detail results, network
@@ -11,5 +11,5 @@ simplified footer are implemented.
 - Next hardware checks: actual display sleep/wake, Ethernet/Wi-Fi transitions with
   GlobalProtect, removable-drive stalls, and longer idle/battery sessions.
 - Developer ID signing, notarization, stapling and Gatekeeper verification passed
-  for the local 0.1.0 build. Public distribution remains separate; see
-  [releasing](docs/releasing.md).
+  for 0.1.0. The ZIP and checksum are published on GitHub; see
+  [releasing](docs/releasing.md). Homebrew remains deferred.

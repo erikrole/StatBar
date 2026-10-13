@@ -55,7 +55,7 @@ and its checksum, and tag the exact source commit recorded in the release manife
 Do not commit certificates, private keys, provisioning assets, or notarization
 credentials.
 
-## Verified local release: 0.1.0 (build 1)
+## Verified release: 0.1.0 (build 1)
 
 Built October 12, 2026 from source commit
 `75e3d8c910cf41459dd6ac826814765350bd53a5`, for Apple Silicon and macOS 27 or later.
@@ -78,6 +78,12 @@ extracted and passed `codesign --verify --deep --strict`, `stapler validate`,
 
 SHA-256: `2a48078664f92b9706eabe702661ec661b2a6f9754a3b17a4ff6d3c7a27ae3f7`.
 
-No GitHub Release, release tag, installation or public deployment was performed.
+Published October 12, 2026 as [StatBar 0.1.0](https://github.com/erikrole/StatBar/releases/tag/v0.1.0).
+Tag `v0.1.0` points to the exact source commit above. The signed ZIP and its
+SHA-256 file are attached; both downloaded GitHub assets match the local files.
+The same release was installed at `/Applications/StatBar.app` and launched,
+replacing the development build; installed signature, ticket and Gatekeeper
+verification passed.
+
 The source validation and remaining hardware/UI verification limits are recorded
 in [performance.md](performance.md).
