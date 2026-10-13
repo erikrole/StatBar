@@ -47,27 +47,37 @@ and writes:
 
 ## GitHub release
 
-The release workflow runs when a `v*` tag is pushed. It expects these GitHub
-Actions secrets:
-
-- `APPLE_TEAM_ID`
-- `DEVELOPER_ID_CERTIFICATE_P12` (base64-encoded certificate and private key)
-- `DEVELOPER_ID_CERTIFICATE_PASSWORD`
-- `KEYCHAIN_PASSWORD`
-- `NOTARY_KEY_ID`
-- `NOTARY_ISSUER_ID`
-- `NOTARY_PRIVATE_KEY` (base64-encoded `.p8` key)
-
-After the secrets are configured:
-
-```sh
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-The workflow verifies that the tag matches `MARKETING_VERSION`, builds and
-notarizes the arm64 app, calculates a SHA-256 checksum, and creates the GitHub
-Release with both files attached.
+No GitHub Actions release workflow is currently checked in. Pushing a tag alone
+does not build or publish a release. GitHub publication is a separate step after
+the local app is signed, notarized, stapled and verified; attach the final ZIP
+and its checksum, and tag the exact source commit recorded in the release manifest.
 
 Do not commit certificates, private keys, provisioning assets, or notarization
 credentials.
+
+## Verified local release: 0.1.0 (build 1)
+
+Built October 12, 2026 from source commit
+`75e3d8c910cf41459dd6ac826814765350bd53a5`, for Apple Silicon and macOS 27 or later.
+Artifacts are retained locally in the ignored `.release/0.1.0-75e3d8c/` directory:
+
+- `StatBar-0.1.0-arm64.zip` — final app with its notarization ticket stapled.
+- `StatBar-0.1.0-arm64.zip.sha256` — checksum for the final ZIP.
+- `release-manifest.json` — source, version, signing and notarization evidence.
+
+The archive and Developer ID export succeeded with Hardened Runtime and a secure
+timestamp. The documented `StatBar-notary` profile was absent; the existing
+`ASC Agent` profile was used through `asc notarization submit --wait` after
+local Keychain approval, without copying or changing credentials. This was a
+manual archive/export/ASC submission followed by the same stapling and ZIP
+packaging steps as the release script.
+
+Apple accepted submission `8abdccab-b09a-4ef3-81b7-677f521e57e2`. The final ZIP was
+extracted and passed `codesign --verify --deep --strict`, `stapler validate`,
+`spctl --assess --type execute` (Notarized Developer ID), and checksum verification.
+
+SHA-256: `2a48078664f92b9706eabe702661ec661b2a6f9754a3b17a4ff6d3c7a27ae3f7`.
+
+No GitHub Release, release tag, installation or public deployment was performed.
+The source validation and remaining hardware/UI verification limits are recorded
+in [performance.md](performance.md).
