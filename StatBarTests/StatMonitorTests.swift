@@ -6,6 +6,13 @@ final class StatMonitorTests: XCTestCase {
     private let ethernet = InterfaceIdentity(transport: .ethernet, displayName: "Ethernet")
     private let start = Date(timeIntervalSince1970: 1_000_000)
 
+    func testFanReadsStayOffTheIdleDetailRound() {
+        XCTAssertTrue(StatMonitor.shouldReadFans(popoverVisible: false, hasReadFans: false))
+        XCTAssertFalse(StatMonitor.shouldReadFans(popoverVisible: false, hasReadFans: true))
+        XCTAssertTrue(StatMonitor.shouldReadFans(popoverVisible: true, hasReadFans: true))
+        XCTAssertTrue(StatMonitor.shouldReadFans(popoverVisible: true, hasReadFans: false))
+    }
+
     func testNotificationPreferenceHonorsLaunchOnlyOverrides() throws {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: "StatBarTests.\(UUID().uuidString)"))
         defer { defaults.removeVolatileDomain(forName: UserDefaults.argumentDomain) }
