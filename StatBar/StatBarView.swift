@@ -1,30 +1,6 @@
 import AppKit
 import SwiftUI
 
-enum Format {
-    static func bytes(_ value: UInt64) -> String {
-        ByteCountFormatter.string(fromByteCount: Int64(clamping: value), countStyle: .memory)
-    }
-
-    static func diskBytes(_ value: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
-    }
-
-    static func rate(_ bytesPerSecond: Double) -> String {
-        ByteCountFormatter.string(fromByteCount: Int64(max(0, bytesPerSecond)), countStyle: .file) + "/s"
-    }
-
-    static func linkSpeed(_ bitsPerSecond: UInt64) -> String {
-        bitsPerSecond >= 1_000_000_000
-            ? String(format: "%g Gb/s", Double(bitsPerSecond) / 1_000_000_000)
-            : "\(bitsPerSecond / 1_000_000) Mb/s"
-    }
-
-    static func percent(_ fraction: Double) -> String {
-        "\(Int((fraction * 100).rounded()))%"
-    }
-}
-
 struct StatBarView: View {
     @Bindable var monitor: StatMonitor
     @Bindable var launchAtLogin: LaunchAtLoginController
@@ -188,8 +164,8 @@ struct StatBarView: View {
                 UsageBar(fraction: Double(battery.percent) / 100, tint: battery.isPluggedIn ? .green : (battery.percent <= 20 ? .orange : .green))
                 Details(isExpanded: $showPowerDetails, label: [battery.stateLabel, battery.remainingLabel].compactMap { $0 }.joined(separator: " · ")) {
                     Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 3) {
-                        if let flow = battery.flowWatts, abs(flow) >= 0.1 {
-                            StatRow(flow > 0 ? "Into battery" : "Drawing", String(format: "%.1f W", abs(flow)))
+                        if let flow = battery.flowWatts, flow.isFinite, abs(flow) >= 0.1 {
+                            StatRow(flow > 0 ? "Into battery" : "Drawing", Format.watts(flow))
                         }
                         if let adapter = battery.adapterWatts {
                             StatRow("Charger", "\(adapter) W")
@@ -279,8 +255,7 @@ struct StatBarView: View {
             } else {
                 HStack(spacing: 16) {
                     ForEach(Array(monitor.fanSpeeds.enumerated()), id: \.offset) { index, rpm in
-                        Label("\(monitor.fanSpeeds.count > 1 ? "Fan \(index + 1): " : "Fan: ")\(rpm < 1 ? "Off" : "\(Int(rpm)) rpm")",
-                              systemImage: "fan")
+                        Label(Format.fanReading(rpm, index: index, count: monitor.fanSpeeds.count), systemImage: "fan")
                     }
                     Spacer()
                 }
@@ -307,7 +282,7 @@ struct StatBarView: View {
                         Text("×\(process.count)").foregroundStyle(.tertiary)
                     }
                     Spacer()
-                    Text(processSort == .cpu ? String(format: "%.0f%%", process.cpu) : Format.bytes(process.memory))
+                    Text(processSort == .cpu ? Format.processPercent(process.cpu) : Format.bytes(process.memory))
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                 }

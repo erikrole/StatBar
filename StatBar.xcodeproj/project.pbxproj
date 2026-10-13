@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		02D7AA1E5958080EAB4E1963 /* Readers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91754DC25FBB12DD5AE38CA8 /* Readers.swift */; };
+		3A91C0E74B6D8F1520C4A7E1 /* Format.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D4F2B19C0A653E7B41D9F28 /* Format.swift */; };
 		5D3116E76D672D762C820308 /* InsightEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD164BA38F8694276F3E4E0B /* InsightEngine.swift */; };
 		74219C8F83730C8C52B0EB41 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3536D3AA5C2FD4690B3A4E4 /* LaunchAtLoginController.swift */; };
 		915D476571055427782D1940 /* NetworkReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77CC8A2F74C8D968564CD4BB /* NetworkReader.swift */; };
@@ -18,6 +19,7 @@
 		C7FC14350B97206DA350A4C3 /* StatBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07CBB179B5C64C04F51D7B17 /* StatBarApp.swift */; };
 		DFA5ACAE0D4690E010E62DB3 /* PerformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EF49E87C9779A3B008107D6 /* PerformanceTests.swift */; };
 		E9835573C6503C553FA3F334 /* StatMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 550338DD53302FA605A1AC19 /* StatMonitorTests.swift */; };
+		F17C2A90B4E86D3C51A0F9B4 /* MetricFormatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B0E8C35D1A947F2E4C7B018 /* MetricFormatTests.swift */; };
 		F43556644109C8E1A69BDBA4 /* PowerReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2432D1AADD6C9B693B6EDD8D /* PowerReader.swift */; };
 /* End PBXBuildFile section */
 
@@ -33,6 +35,8 @@
 
 /* Begin PBXFileReference section */
 		07996F611F57265DA8D21E73 /* InsightEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightEngineTests.swift; sourceTree = "<group>"; };
+		6B0E8C35D1A947F2E4C7B018 /* MetricFormatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricFormatTests.swift; sourceTree = "<group>"; };
+		8D4F2B19C0A653E7B41D9F28 /* Format.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Format.swift; sourceTree = "<group>"; };
 		07CBB179B5C64C04F51D7B17 /* StatBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatBarApp.swift; sourceTree = "<group>"; };
 		2432D1AADD6C9B693B6EDD8D /* PowerReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerReader.swift; sourceTree = "<group>"; };
 		4EF49E87C9779A3B008107D6 /* PerformanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceTests.swift; sourceTree = "<group>"; };
@@ -63,6 +67,7 @@
 			isa = PBXGroup;
 			children = (
 				BCA8C85862AA7E6D9249279F /* Info.plist */,
+				8D4F2B19C0A653E7B41D9F28 /* Format.swift */,
 				FD164BA38F8694276F3E4E0B /* InsightEngine.swift */,
 				F3536D3AA5C2FD4690B3A4E4 /* LaunchAtLoginController.swift */,
 				77CC8A2F74C8D968564CD4BB /* NetworkReader.swift */,
@@ -88,6 +93,7 @@
 			isa = PBXGroup;
 			children = (
 				07996F611F57265DA8D21E73 /* InsightEngineTests.swift */,
+				6B0E8C35D1A947F2E4C7B018 /* MetricFormatTests.swift */,
 				4EF49E87C9779A3B008107D6 /* PerformanceTests.swift */,
 				7426C42209A6485335CF470A /* ReaderTests.swift */,
 				550338DD53302FA605A1AC19 /* StatMonitorTests.swift */,
@@ -181,6 +187,7 @@
 				915D476571055427782D1940 /* NetworkReader.swift in Sources */,
 				F43556644109C8E1A69BDBA4 /* PowerReader.swift in Sources */,
 				02D7AA1E5958080EAB4E1963 /* Readers.swift in Sources */,
+				3A91C0E74B6D8F1520C4A7E1 /* Format.swift in Sources */,
 				C7FC14350B97206DA350A4C3 /* StatBarApp.swift in Sources */,
 				A5DF8FC531A8598341660262 /* StatBarView.swift in Sources */,
 				9BA3F7F8E33D543DB83D440F /* StatMonitor.swift in Sources */,
@@ -194,6 +201,7 @@
 				A9FF2EA63B203EFBEF47A391 /* InsightEngineTests.swift in Sources */,
 				DFA5ACAE0D4690E010E62DB3 /* PerformanceTests.swift in Sources */,
 				B61A97B98B82CA168867A8DE /* ReaderTests.swift in Sources */,
+				F17C2A90B4E86D3C51A0F9B4 /* MetricFormatTests.swift in Sources */,
 				E9835573C6503C553FA3F334 /* StatMonitorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
