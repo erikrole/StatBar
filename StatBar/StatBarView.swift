@@ -28,7 +28,11 @@ enum Format {
 struct StatBarView: View {
     @Bindable var monitor: StatMonitor
     @Bindable var launchAtLogin: LaunchAtLoginController
-    @State private var processSort: ProcessSort = .cpu
+    @AppStorage("processSort") private var processSort: ProcessSort = .cpu
+    @AppStorage("showCoreDetails") private var showCoreDetails = false
+    @AppStorage("showMemoryDetails") private var showMemoryDetails = false
+    @AppStorage("showPowerDetails") private var showPowerDetails = false
+    @AppStorage("showNetworkDetails") private var showNetworkDetails = false
     /// Set by `--snapshot`, which can't draw AppKit controls such as the segmented picker.
     var isSnapshot = false
 
@@ -55,8 +59,7 @@ struct StatBarView: View {
     var cards: some View {
         VStack(spacing: 10) {
             nowCard
-            cpuCard
-            gpuCard
+            computeCard
             memoryCard
             powerCard
             networkCard
@@ -102,7 +105,8 @@ struct StatBarView: View {
                 .foregroundStyle(.secondary)
             }
         }
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, monitor.insights.isEmpty ? 8 : 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(nowBackground, in: RoundedRectangle(cornerRadius: 10))
         .animation(.easeOut(duration: 0.25), value: monitor.insights.map(\.id))
@@ -116,28 +120,48 @@ struct StatBarView: View {
         }
     }
 
-    private var cpuCard: some View {
-        Card(title: "CPU", value: Format.percent(monitor.cpu), symbol: "cpu") {
-            Sparkline(values: monitor.cpuHistory, tint: .blue)
-            ForEach(monitor.coreGroups) { group in
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack {
-                        Text("\(group.name) · \(group.coreCount) cores")
-                        Spacer()
-                        Text(Format.percent(group.load)).monospacedDigit()
+    private var computeCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                computeMetric("CPU", value: Format.percent(monitor.cpu), symbol: "cpu",
+                              history: monitor.cpuHistory, tint: .blue)
+                Divider()
+                computeMetric("GPU", value: monitor.gpu.map(Format.percent) ?? "–", symbol: "square.stack.3d.up",
+                              history: monitor.gpuHistory, tint: .purple)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            if !monitor.coreGroups.isEmpty {
+                Details(isExpanded: $showCoreDetails, label: "CPU cores") {
+                    ForEach(monitor.coreGroups) { group in
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack {
+                                Text("\(group.name) · \(group.coreCount) cores")
+                                Spacer()
+                                Text(Format.percent(group.load)).monospacedDigit()
+                            }
+                            CoreBars(loads: group.coreLoads)
+                        }
                     }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    CoreBars(loads: group.coreLoads)
                 }
             }
         }
+        .padding(12)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
     }
 
-    private var gpuCard: some View {
-        Card(title: "GPU", value: monitor.gpu.map(Format.percent) ?? "–", symbol: "square.stack.3d.up") {
-            Sparkline(values: monitor.gpuHistory, tint: .purple)
+    private func computeMetric(_ title: String, value: String, symbol: String, history: [Double], tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label(title, systemImage: symbol)
+                Spacer(minLength: 4)
+                Text(value).monospacedDigit()
+            }
+            .font(.subheadline.weight(.semibold))
+            Sparkline(values: history, tint: tint, height: 28)
         }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title) \(value == "–" ? "unavailable" : value)")
     }
 
     @ViewBuilder
@@ -145,13 +169,13 @@ struct StatBarView: View {
         if let memory = monitor.memory {
             Card(title: "Memory", value: memory.pressure.label, valueColor: pressureColor(memory.pressure), symbol: "memorychip") {
                 UsageBar(fraction: memory.usedFraction, tint: pressureColor(memory.pressure))
-                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 3) {
-                    StatRow("Used", "\(Format.bytes(memory.used)) of \(Format.bytes(memory.total))")
-                    StatRow("Compressed", Format.bytes(memory.compressed))
-                    StatRow("Cached files", Format.bytes(memory.cached))
-                    StatRow("Swap", memory.swapTotal == 0 ? "None" : "\(Format.bytes(memory.swapUsed)) of \(Format.bytes(memory.swapTotal))")
+                Details(isExpanded: $showMemoryDetails, label: "\(Format.bytes(memory.used)) of \(Format.bytes(memory.total)) used") {
+                    Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 3) {
+                        StatRow("Compressed", Format.bytes(memory.compressed))
+                        StatRow("Cached files", Format.bytes(memory.cached))
+                        StatRow("Swap", memory.swapTotal == 0 ? "None" : "\(Format.bytes(memory.swapUsed)) of \(Format.bytes(memory.swapTotal))")
+                    }
                 }
-                .font(.caption)
             }
         }
     }
@@ -162,31 +186,29 @@ struct StatBarView: View {
             Card(title: "Power", value: "\(battery.percent)%", valueColor: battery.percent <= 15 && !battery.isPluggedIn ? .red : .primary,
                  symbol: battery.isCharging ? "battery.100percent.bolt" : "battery.75percent") {
                 UsageBar(fraction: Double(battery.percent) / 100, tint: battery.isPluggedIn ? .green : (battery.percent <= 20 ? .orange : .green))
-                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 3) {
-                    StatRow("State", [battery.stateLabel, battery.remainingLabel].compactMap { $0 }.joined(separator: " · "))
-                    if let flow = battery.flowWatts, abs(flow) >= 0.1 {
-                        StatRow(flow > 0 ? "Into battery" : "Drawing", String(format: "%.1f W", abs(flow)))
-                    }
-                    if let adapter = battery.adapterWatts {
-                        StatRow("Charger", "\(adapter) W")
-                    }
-                    if let health = battery.health {
-                        StatRow("Health", "\(Format.percent(health))\(battery.cycleCount.map { " · \($0) cycles" } ?? "")")
-                    }
-                }
-                .font(.caption)
-                if !monitor.sleepBlockers.isEmpty {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Keeping your Mac awake")
-                            .font(.caption.weight(.medium))
-                        ForEach(monitor.sleepBlockers) { blocker in
-                            Label("\(blocker.process): \(blocker.reason)", systemImage: blocker.preventsDisplaySleep ? "display" : "moon.zzz")
-                                .lineLimit(1)
-                                .help(blocker.reason)
+                Details(isExpanded: $showPowerDetails, label: [battery.stateLabel, battery.remainingLabel].compactMap { $0 }.joined(separator: " · ")) {
+                    Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 3) {
+                        if let flow = battery.flowWatts, abs(flow) >= 0.1 {
+                            StatRow(flow > 0 ? "Into battery" : "Drawing", String(format: "%.1f W", abs(flow)))
+                        }
+                        if let adapter = battery.adapterWatts {
+                            StatRow("Charger", "\(adapter) W")
+                        }
+                        if let health = battery.health {
+                            StatRow("Health", "\(Format.percent(health))\(battery.cycleCount.map { " · \($0) cycles" } ?? "")")
                         }
                     }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    if !monitor.sleepBlockers.isEmpty {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Keeping your Mac awake")
+                                .font(.caption.weight(.medium))
+                            ForEach(monitor.sleepBlockers) { blocker in
+                                Label("\(blocker.process): \(blocker.reason)", systemImage: blocker.preventsDisplaySleep ? "display" : "moon.zzz")
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .help(blocker.reason)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -204,18 +226,19 @@ struct StatBarView: View {
                 RateGraph(label: "Down", rate: monitor.downloadRate, values: monitor.downloadHistory, tint: .blue, symbol: "arrow.down")
                 RateGraph(label: "Up", rate: monitor.uploadRate, values: monitor.uploadHistory, tint: .orange, symbol: "arrow.up")
             }
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 3) {
-                StatRow("Using", [
-                    network.displayName ?? network.transport.rawValue,
-                    network.linkSpeedBitsPerSecond.map(Format.linkSpeed),
-                ].compactMap { $0 }.joined(separator: " · "))
-                if let address = network.localAddress { StatRow("IP address", address) }
-                if let router = network.routerAddress { StatRow("Router", router) }
-                if SystemNetworkReader.isGlobalProtectInstalled {
-                    StatRow("VPN", network.vpnTunnel == nil ? "GlobalProtect off" : "GlobalProtect connected")
+            Details(isExpanded: $showNetworkDetails, label: network.displayName ?? network.transport.rawValue) {
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 3) {
+                    if let speed = network.linkSpeedBitsPerSecond { StatRow("Link speed", Format.linkSpeed(speed)) }
+                    if let address = network.localAddress { StatRow("IP address", address) }
+                    if let router = network.routerAddress { StatRow("Router", router) }
+                    if SystemNetworkReader.isGlobalProtectInstalled {
+                        let vpnStatus = monitor.vpnStatusKnown
+                            ? (network.vpnTunnel == nil ? "GlobalProtect off" : "GlobalProtect connected")
+                            : "Checking GlobalProtect"
+                        StatRow("VPN", vpnStatus)
+                    }
                 }
             }
-            .font(.caption)
         }
     }
 
@@ -305,25 +328,33 @@ struct StatBarView: View {
 
     private var footer: some View {
         HStack {
-            Toggle("Alerts", isOn: $monitor.notificationsEnabled)
-                .toggleStyle(.checkbox)
-                .controlSize(.small)
-                .help("Notify me about serious things: offline, low battery, a charger that can't keep up, a nearly full disk, critical memory, throttling.")
-            Toggle("Launch at login", isOn: Binding(
-                get: { launchAtLogin.isEnabled },
-                set: { launchAtLogin.setEnabled($0) }
-            ))
-            .toggleStyle(.checkbox)
-            .controlSize(.small)
-            Spacer()
             Button("Activity Monitor") {
                 NSWorkspace.shared.open(URL(filePath: "/System/Applications/Utilities/Activity Monitor.app"))
             }
             .buttonStyle(.borderless)
             .controlSize(.small)
-            Button("Quit") { NSApp.terminate(nil) }
-                .buttonStyle(.borderless)
-                .controlSize(.small)
+            Spacer()
+            Menu {
+                Toggle("Alerts", isOn: $monitor.notificationsEnabled)
+                Toggle("Launch at login", isOn: Binding(
+                    get: { launchAtLogin.isEnabled },
+                    set: { launchAtLogin.setEnabled($0) }
+                ))
+                if launchAtLogin.requiresApproval || launchAtLogin.errorMessage != nil {
+                    Button("Open Login Items Settings…") { launchAtLogin.openSettings() }
+                }
+                Divider()
+                Button("Quit StatBar") { NSApp.terminate(nil) }
+                    .keyboardShortcut("q")
+            } label: {
+                Image(systemName: "gearshape")
+                    .frame(width: 24, height: 22)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("StatBar settings")
+            .accessibilityLabel("StatBar settings")
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -376,6 +407,27 @@ private struct Card<Content: View>: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+private struct Details<Content: View>: View {
+    @Binding var isExpanded: Bool
+    let label: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            VStack(alignment: .leading, spacing: 8) {
+                content
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 6)
+        } label: {
+            Text(label)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 }
 
@@ -433,6 +485,7 @@ private struct StatRow: View {
 private struct Sparkline: View {
     let values: [Double]
     let tint: Color
+    var height: CGFloat = 36
 
     var body: some View {
         Canvas { context, size in
@@ -455,7 +508,7 @@ private struct Sparkline: View {
             context.fill(area, with: .color(tint.opacity(0.18)))
             context.stroke(line, with: .color(tint), lineWidth: 1.2)
         }
-        .frame(height: 36)
+        .frame(height: height)
         .accessibilityHidden(true)
     }
 }
@@ -474,8 +527,7 @@ private struct RateGraph: View {
                 .foregroundStyle(.secondary)
                 .accessibilityLabel("\(label) \(Format.rate(rate))")
             let peak = max(values.max() ?? 0, 1)
-            Sparkline(values: values.map { $0 / peak }, tint: tint)
-                .frame(height: 28)
+            Sparkline(values: values.map { $0 / peak }, tint: tint, height: 28)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

@@ -4,8 +4,8 @@ import Observation
 import UserNotifications
 
 /// Samples the system every two seconds. CPU, GPU and memory run all the time so the
-/// menu bar and the short history are always current; disks, fans and the process list
-/// are read only while the popover is open.
+/// menu bar and the short history are always current. Detail refreshes every 30 seconds
+/// in the background and more often while the popover is open.
 @MainActor
 @Observable
 final class StatMonitor {
@@ -38,7 +38,7 @@ final class StatMonitor {
     // Attention
     private(set) var insights: [Insight] = []
     private(set) var recentEvents: [Insight] = []
-    var notificationsEnabled: Bool = UserDefaults.standard.object(forKey: "notificationsEnabled") as? Bool ?? true {
+    var notificationsEnabled: Bool = StatMonitor.notificationPreference() {
         didSet {
             UserDefaults.standard.set(notificationsEnabled, forKey: "notificationsEnabled")
             if notificationsEnabled { Self.requestNotificationPermission() }
@@ -77,8 +77,8 @@ final class StatMonitor {
     private var lastIO: (read: UInt64, write: UInt64, at: Date)?
     private var samplingTask: Task<Void, Never>?
     private var pathTask: Task<Void, Never>?
+    private var detailTask: Task<Void, Never>?
     private var isPopoverVisible = false
-    private var detailStartedAt: Date?
     private var detailRound = 0
     private var hasBattery = true
     /// Kernel free-space figures that the disk alerts use.
@@ -86,35 +86,68 @@ final class StatMonitor {
     private var tickCount = 0
     private var quickSampler = QuickProcessSampler()
     private var detailsInterface: String?
+    private(set) var vpnStatusKnown = false
     private var isPaused = false
+    private var isStarted = false
+    private let detailReader: DetailReader
+
+    typealias DetailReader = @Sendable (Bool, Bool, QuickProcessSampler) async -> DetailSnapshot?
+
+    struct DetailSnapshot: Sendable {
+        var volumes: [VolumeInfo] = []
+        var alertVolumes: [VolumeInfo] = []
+        var totals: (read: UInt64, write: UInt64) = (0, 0)
+        var totalsAt = Date()
+        var blockers: [SleepBlocker] = []
+        var processes: [ProcessUsage]?
+        var sampler: QuickProcessSampler?
+    }
+
+    init(detailReader: @escaping DetailReader = StatMonitor.readDetail) {
+        self.detailReader = detailReader
+    }
+
+    isolated deinit {
+        samplingTask?.cancel()
+        pathTask?.cancel()
+        detailTask?.cancel()
+    }
 
     func start() {
+        guard !isStarted else { return }
+        isStarted = true
+        isPaused = false
+        resetSamplingBaselines()
+        startPathMonitoring()
+        if notificationsEnabled { Self.requestNotificationPermission() }
+        tick(refreshDetail: true)
+        startSampling()
+    }
+
+    private func startPathMonitoring() {
+        pathTask?.cancel()
         pathTask = Task { [weak self] in
             for await path in NWPathMonitor() {
-                guard let self else { return }
+                guard !Task.isCancelled, let self, !self.isPaused else { return }
                 self.internetReachable = path.status == .satisfied
             }
         }
-        if notificationsEnabled { Self.requestNotificationPermission() }
-        sampleFast()
-        thermalState = ProcessInfo.processInfo.thermalState
-        startSampling()
     }
 
     func setPopoverVisible(_ visible: Bool) {
         isPopoverVisible = visible
-        if visible {
+        if visible && !isPaused {
             lastIO = nil
             sampleDetail()
         }
     }
 
-    private func tick() {
+    private func tick(refreshDetail: Bool = false) {
         sampleFast()
         thermalState = ProcessInfo.processInfo.thermalState
         // Detail every tick while you're looking, otherwise every 30 s so StatBar can
         // still notice a runaway app, a full disk or a mounted drive on its own.
-        if isPopoverVisible || tickCount % 15 == 0 { sampleDetail() }
+        if refreshDetail || isPopoverVisible || tickCount % 15 == 0 { sampleDetail() }
         evaluateInsights()
     }
 
@@ -128,8 +161,8 @@ final class StatMonitor {
         signals.online = internetReachable
         signals.transport = network.transport
         signals.interfaceName = network.interfaceName
+        signals.vpnConnected = vpnStatusKnown ? network.vpnTunnel != nil : nil
         if hasDetail {
-            signals.vpnConnected = network.vpnTunnel != nil
             signals.processes = processes
             signals.volumes = alertVolumes
             signals.sleepBlockers = sleepBlockers
@@ -166,6 +199,12 @@ final class StatMonitor {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 
+    static func notificationPreference(in defaults: UserDefaults = .standard) -> Bool {
+        // Command-line overrides live in NSArgumentDomain as strings. bool(forKey:)
+        // interprets those as well as persisted Bool values without changing either.
+        defaults.object(forKey: "notificationsEnabled") == nil || defaults.bool(forKey: "notificationsEnabled")
+    }
+
     private func sampleFast() {
         let loads = cpuReader.sample()
         if !loads.isEmpty {
@@ -197,23 +236,43 @@ final class StatMonitor {
     /// Route and throughput every tick, so the graphs have history when the popover opens.
     private func sampleNetworkRates() {
         let route = networkReader.activeRoute()
-        network.interfaceName = route.interfaceName
-        network.routerAddress = route.routerAddress
-        // Keep the connection kind in step with the route right away, not on the next
-        // 30 s detail round, so events and labels name the right connection.
-        if let name = route.interfaceName, name != detailsInterface {
-            refreshInterfaceIdentity(name)
+        let routeChanged = route.interfaceName != network.interfaceName
+        let identity = route.interfaceName.flatMap { name in
+            name != detailsInterface ? networkReader.identity(forBSDName: name) : nil
         }
-        guard let name = route.interfaceName else {
-            network.transport = .none
+        let counters = route.interfaceName.flatMap { networkReader.counters(for: $0) }
+        applyNetworkSample(route: route, identity: identity, counters: counters, at: Date())
+        if routeChanged { sampleNetworkDetails() }
+    }
+
+    /// Applies one route/counter sample, also used by deterministic disconnect tests.
+    func applyNetworkSample(route: ActiveRoute, identity: InterfaceIdentity?, counters: InterfaceCounters?, at now: Date) {
+        if route.interfaceName != network.interfaceName || route.interfaceName == nil {
+            network = NetworkState()
+            // A new physical route says nothing about whether the VPN survived it.
+            // Wait for a fresh VPN read before emitting connection events.
+            vpnStatusKnown = route.interfaceName == nil
             detailsInterface = nil
+            lastCounters = nil
             downloadRate = 0
             uploadRate = 0
-            lastCounters = nil
+        }
+        network.interfaceName = route.interfaceName
+        network.routerAddress = route.routerAddress
+        if route.interfaceName != nil, network.transport == .none { network.transport = .other }
+        // Keep the connection kind in step with the route right away, not on the next
+        // 30 s detail round, so events and labels name the right connection.
+        if let name = route.interfaceName, let identity {
+            detailsInterface = name
+            network.transport = identity.transport
+            network.displayName = identity.displayName
+        }
+        guard let name = route.interfaceName else {
+            Self.append(0, to: &downloadHistory)
+            Self.append(0, to: &uploadHistory)
             return
         }
-        let now = Date()
-        if let counters = networkReader.counters(for: name) {
+        if let counters {
             if let last = lastCounters, last.interface == name {
                 let elapsed = max(now.timeIntervalSince(last.at), 0.5)
                 downloadRate = counterRate(from: last.counters.receivedBytes, to: counters.receivedBytes, over: elapsed)
@@ -222,6 +281,12 @@ final class StatMonitor {
                 Self.append(uploadRate, to: &uploadHistory)
             }
             lastCounters = (name, counters, now)
+        } else {
+            downloadRate = 0
+            uploadRate = 0
+            lastCounters = nil
+            Self.append(0, to: &downloadHistory)
+            Self.append(0, to: &uploadHistory)
         }
     }
 
@@ -231,55 +296,88 @@ final class StatMonitor {
         // The interface's kind and display name only change when the interface does, and
         // looking them up walks every network interface (~4 ms), so cache them per name.
         if detailsInterface != name { refreshInterfaceIdentity(name) }
-        network.localAddress = networkReader.localIPv4Address(for: name)
-        network.linkSpeedBitsPerSecond = network.transport == .ethernet && isPopoverVisible
+        let localAddress = networkReader.localIPv4Address(for: name)
+        let linkSpeed = network.transport == .ethernet && isPopoverVisible
             ? networkReader.activeEthernetConnections().first { $0.interfaceName == name }?.linkSpeedBitsPerSecond
             : (network.transport == .ethernet ? network.linkSpeedBitsPerSecond : nil)
         let vpn = networkReader.globalProtectStatus()
-        if vpn.known { network.vpnTunnel = vpn.tunnel }
+        applyNetworkDetails(localAddress: localAddress, linkSpeed: linkSpeed, vpn: vpn)
+    }
+
+    func applyNetworkDetails(localAddress: String?, linkSpeed: UInt64?, vpn: (known: Bool, tunnel: String?)) {
+        network.localAddress = localAddress
+        network.linkSpeedBitsPerSecond = linkSpeed
+        if vpn.known {
+            network.vpnTunnel = vpn.tunnel
+            vpnStatusKnown = true
+        }
     }
 
     private func refreshInterfaceIdentity(_ name: String) {
+        guard let identity = networkReader.identity(forBSDName: name) else { return }
         detailsInterface = name
-        network.transport = networkReader.transport(forBSDName: name) ?? .other
-        network.displayName = networkReader.displayName(forBSDName: name)
+        network.transport = identity.transport
+        network.displayName = identity.displayName
         network.linkSpeedBitsPerSecond = nil
     }
 
     private func sampleDetail() {
+        // Synchronous OS reads cannot be forcibly cancelled. Keep their slot until they
+        // return, even across pause/resume, so a stalled drive cannot accumulate tasks.
+        guard !isPaused else { return }
         fanSpeeds = fans?.speeds() ?? []
         sampleNetworkDetails()
+        guard detailTask == nil else { return }
         // Volumes, disk counters, sleep assertions and `ps` can each block for a while
         // (a waking external drive, a busy system), so they run off the main thread and
         // a slow round is skipped rather than piled up.
-        // Skip while a round is in flight, but not forever: a round stuck on a dead mount
-        // or a wedged daemon is abandoned after 20 s so the readings don't freeze.
-        if let started = detailStartedAt, Date().timeIntervalSince(started) < 20 { return }
-        detailStartedAt = Date()
         detailRound &+= 1
         let round = detailRound
-        // With the popover open: Finder-accurate free space and the full `ps` list (every
-        // other tick). In the background: the kernel mount table and libproc, which cost
-        // a few milliseconds instead of ~140 ms per round.
+        // With the popover open: Finder-accurate free space and the full `ps` list.
+        // In the background: the cheaper kernel mount table and libproc.
         let thorough = isPopoverVisible
         // `ps` costs ~55 ms, so even with the popover open the app list refreshes every 10 s.
-        let refreshProcesses = !thorough || processes.isEmpty || tickCount % 5 == 0
-        var sampler = quickSampler
-        Task.detached(priority: .utility) { [weak self] in
-            // Alerts always judge free space from the kernel figure, so opening the popover
-            // (which shows Finder's figure, including purgeable space) can't flip them.
-            let quick = DiskReader.quickVolumes()
-            let volumes = thorough ? DiskReader.volumes() : quick
-            let totals = DiskReader.ioTotals()
-            let totalsAt = Date()
-            let blockers = PowerReader.sleepBlockers()
-            var processes: [ProcessUsage]?
-            if refreshProcesses {
-                processes = thorough ? ProcessReader.sample() : sampler.sample()
-            }
-            await self?.applyDetail(round: round, volumes: volumes, alertVolumes: quick, totals: totals, totalsAt: totalsAt,
-                                    blockers: blockers, processes: processes, sampler: thorough ? nil : sampler)
+        let refreshProcesses = !thorough || !hasDetail || processes.isEmpty || tickCount % 5 == 0
+        let sampler = quickSampler
+        let reader = detailReader
+        detailTask = Task.detached(priority: .utility) { [weak self] in
+            let snapshot = await reader(thorough, refreshProcesses, sampler)
+            let cancelled = Task.isCancelled
+            await self?.completeDetail(round: round, snapshot: cancelled ? nil : snapshot)
         }
+    }
+
+    nonisolated private static func readDetail(thorough: Bool, refreshProcesses: Bool, sampler: QuickProcessSampler) async -> DetailSnapshot? {
+        guard !Task.isCancelled else { return nil }
+        var sampler = sampler
+        // Alerts always judge free space from the kernel figure, so opening the popover
+        // (which shows Finder's figure, including purgeable space) can't flip them.
+        let quick = DiskReader.quickVolumes()
+        guard !Task.isCancelled else { return nil }
+        let volumes = thorough ? DiskReader.volumes() : quick
+        guard !Task.isCancelled else { return nil }
+        let totals = DiskReader.ioTotals()
+        let totalsAt = Date()
+        let blockers = PowerReader.sleepBlockers()
+        guard !Task.isCancelled else { return nil }
+        var processes: [ProcessUsage]?
+        if refreshProcesses {
+            processes = thorough ? ProcessReader.sample() : sampler.sample()
+        }
+        return DetailSnapshot(volumes: volumes, alertVolumes: quick, totals: totals, totalsAt: totalsAt,
+                              blockers: blockers, processes: processes, sampler: thorough ? nil : sampler)
+    }
+
+    private func completeDetail(round: Int, snapshot: DetailSnapshot?) {
+        detailTask = nil
+        guard round == detailRound, !isPaused else {
+            if isStarted && !isPaused { sampleDetail() }
+            return
+        }
+        guard let snapshot else { return }
+        applyDetail(round: round, volumes: snapshot.volumes, alertVolumes: snapshot.alertVolumes,
+                    totals: snapshot.totals, totalsAt: snapshot.totalsAt, blockers: snapshot.blockers,
+                    processes: snapshot.processes, sampler: snapshot.sampler)
     }
 
     private func applyDetail(
@@ -292,10 +390,9 @@ final class StatMonitor {
         processes: [ProcessUsage]?,
         sampler: QuickProcessSampler?
     ) {
-        // A round that was given up on and finished late doesn't overwrite newer data.
+        // Pausing invalidates the round even if an OS call ignores cancellation.
         guard round == detailRound else { return }
         if let sampler { quickSampler = sampler }
-        detailStartedAt = nil
         hasDetail = true
         self.volumes = volumes
         self.alertVolumes = alertVolumes
@@ -316,13 +413,36 @@ final class StatMonitor {
         if paused {
             samplingTask?.cancel()
             samplingTask = nil
+            pathTask?.cancel()
+            pathTask = nil
+            detailTask?.cancel()
+            detailRound &+= 1
         } else {
-            lastIO = nil
-            lastCounters = nil
-            engine.resetPending()
-            tick()
-            startSampling()
+            resetSamplingBaselines()
+            if isStarted {
+                startPathMonitoring()
+                tick(refreshDetail: true)
+                startSampling()
+            }
         }
+    }
+
+    func stop() {
+        setPaused(true)
+        isStarted = false
+    }
+
+    private func resetSamplingBaselines() {
+        lastIO = nil
+        lastCounters = nil
+        readRate = 0
+        writeRate = 0
+        downloadRate = 0
+        uploadRate = 0
+        cpuReader.reset()
+        quickSampler = QuickProcessSampler()
+        hasDetail = false
+        engine.resetPending()
     }
 
     /// Ticks every `interval` on the main actor; a sleeping task keeps sampling alive

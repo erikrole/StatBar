@@ -118,6 +118,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        monitor.stop()
+        sleepTask?.cancel()
+        wakeTask?.cancel()
         if let outsideClickMonitor {
             NSEvent.removeMonitor(outsideClickMonitor)
         }
@@ -192,11 +195,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         monitor.start()
         monitor.setPopoverVisible(true)
         try? await Task.sleep(for: .seconds(40))
+        let scheme: ColorScheme = CommandLine.arguments.contains("--snapshot-light") ? .light : .dark
         // ImageRenderer can't draw scroll views or AppKit controls, so render the cards alone.
         let view = StatBarView(monitor: monitor, launchAtLogin: launchAtLogin, isSnapshot: true).cards
             .frame(width: 360)
             .background(Color(nsColor: .windowBackgroundColor))
-            .environment(\.colorScheme, .dark)
+            .environment(\.colorScheme, scheme)
         let renderer = ImageRenderer(content: view)
         renderer.scale = 2
         if let image = renderer.cgImage {

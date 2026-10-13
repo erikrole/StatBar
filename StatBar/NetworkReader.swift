@@ -46,23 +46,18 @@ struct SystemNetworkReader {
         return nil
     }
 
-    func displayName(forBSDName name: String) -> String? {
-        guard let interfaces = SCNetworkInterfaceCopyAll() as? [SCNetworkInterface] else { return nil }
-        for interface in interfaces {
-            guard SCNetworkInterfaceGetBSDName(interface) as String? == name else { continue }
-            return SCNetworkInterfaceGetLocalizedDisplayName(interface) as String?
-        }
-        return nil
-    }
-
-    func transport(forBSDName name: String) -> TransportKind? {
+    /// Resolve both fields in one interface enumeration.
+    func identity(forBSDName name: String) -> InterfaceIdentity? {
         guard let interfaces = SCNetworkInterfaceCopyAll() as? [SCNetworkInterface] else { return nil }
         for interface in interfaces {
             guard SCNetworkInterfaceGetBSDName(interface) as String? == name else { continue }
             let type = SCNetworkInterfaceGetInterfaceType(interface) as String?
-            if type == kSCNetworkInterfaceTypeIEEE80211 as String { return .wifi }
-            if type == kSCNetworkInterfaceTypeEthernet as String { return .ethernet }
-            return .other
+            let transport: TransportKind
+            if type == kSCNetworkInterfaceTypeIEEE80211 as String { transport = .wifi }
+            else if type == kSCNetworkInterfaceTypeEthernet as String { transport = .ethernet }
+            else { transport = .other }
+            return InterfaceIdentity(transport: transport,
+                                     displayName: SCNetworkInterfaceGetLocalizedDisplayName(interface) as String?)
         }
         return nil
     }
@@ -304,6 +299,11 @@ enum TransportKind: String, Sendable {
 struct ActiveRoute: Equatable, Sendable {
     var interfaceName: String?
     var routerAddress: String?
+}
+
+struct InterfaceIdentity: Equatable, Sendable {
+    let transport: TransportKind
+    let displayName: String?
 }
 
 struct EthernetConnection: Equatable, Sendable {

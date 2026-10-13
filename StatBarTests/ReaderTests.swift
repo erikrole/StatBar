@@ -25,6 +25,14 @@ final class ReaderTests: XCTestCase {
         XCTAssertEqual(CPUReader.loads(from: [], to: new), [])
     }
 
+    func testCPUResetDiscardsPreSleepBaseline() {
+        var reader = CPUReader()
+        XCTAssertTrue(reader.sample().isEmpty)
+        XCTAssertFalse(reader.sample().isEmpty)
+        reader.reset()
+        XCTAssertTrue(reader.sample().isEmpty)
+    }
+
     func testProcessParsingFoldsHelpers() {
         let output = """
           101 12.5 102400 Google Chrome

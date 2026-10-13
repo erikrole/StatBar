@@ -23,51 +23,88 @@ covers the whole machine.
 
   Warnings and above tint the menu bar gauge. Serious ones (offline, low battery, a
   struggling charger, a nearly full disk, critical memory, throttling) can also send
-  a notification, at most once per condition every 30 minutes; the Alerts checkbox
-  turns that off.
-- **CPU:** total load with a two-minute history, and each core group (Super and
-  Performance on M5) with per-core bars.
-- **GPU:** device utilization with history.
-- **Memory:** pressure first, then used, compressed, cached files and swap, using
-  Activity Monitor's definition of Memory Used.
-- **Power:** battery level, charging state and time remaining, live battery flow in
-  watts, charger wattage, battery health and cycles, and which apps are keeping the
-  Mac or its display awake.
-- **Network:** online status, live download and upload graphs, the interface actually
-  in use (with Ethernet link speed), IP address, router, and whether GlobalProtect is
-  connected. Wi-Fi network names are left out because they need Location Services.
+  a notification, at most once per condition every 30 minutes; Alerts in the
+  footer settings menu turns that off.
+- **CPU and GPU:** side-by-side load summaries with two-minute histories. Expand
+  CPU cores for each core group (Super and Performance on M5) and per-core bars.
+- **Memory:** pressure and used memory at a glance; expand for compressed memory,
+  cached files and swap. Uses Activity Monitor's definition of Memory Used.
+- **Power:** battery level, charging state and time remaining; expand for battery
+  flow, charger wattage, health and cycles, and apps keeping the Mac awake.
+- **Network:** online status, live download/upload graphs and the active interface;
+  expand for Ethernet link speed, IP address, router and GlobalProtect status.
+  Wi-Fi network names are left out because they need Location Services.
 - **Disks:** free space on the startup disk and any local media drives (network
   shares are skipped so a slow NAS can't stall the menu), plus live read and write.
 - **Heat:** macOS thermal state (whether the Mac is throttling) and fan speeds.
 - **Top apps:** by CPU or memory, with helper processes counted as their app.
 
+Detail sections start collapsed and remember their state, along with the Top apps
+sort order, when the popover reopens. The fixed footer keeps Activity Monitor one
+click away; its settings menu contains Alerts, Launch at login and Quit StatBar.
+
 Everything is read through public, unprivileged interfaces (Mach host statistics,
 sysctl, the IORegistry, IOKit power assertions, SystemConfiguration, read-only SMC
 fan keys and `ps`). The network reader is adapted from NetBar's. There is no privileged
-helper. CPU, GPU, memory, battery and network throughput sample every two seconds; disks, fans and the app list
-are read only while the popover is open.
+helper. CPU, GPU, memory and network throughput sample every two seconds. Battery
+samples every ten seconds in the background and every two seconds with the popover
+open. Detail readings refresh at startup, after wake, and every thirty seconds in
+the background; opening the popover refreshes detail every two seconds, with the
+full app list normally refreshing every ten seconds. Sampling pauses when
+the displays sleep. A stalled disk or process read retains one worker slot until
+it returns; fast readings, fans and network details continue independently.
 
-![Popover](docs/popover.png)
+The compact overview fits CPU, GPU, memory, power and network in the first
+360 × 600-point view when there are no active alerts. Additional details, disks,
+heat and the app list remain available by expanding or scrolling.
 
 ## Build and run
 
 Requirements: macOS 27 or later, Xcode, and XcodeGen.
 
 ```sh
-xcodegen generate
-xcodebuild -project StatBar.xcodeproj -scheme StatBar -configuration Debug CODE_SIGNING_ALLOWED=NO build
-open ~/Library/Developer/Xcode/DerivedData/StatBar-*/Build/Products/Debug/StatBar.app
+./script/build_and_run.sh --verify
 ```
+
+The Codex Run action uses the same script. It builds an unsigned local app under
+`build/run`, then replaces the running copy after the build succeeds. Use
+`STATBAR_CONFIGURATION=Release` for an optimized build. Optional modes are
+`--debug`, `--logs` and `--telemetry`.
 
 `StatBar --report [seconds]` samples (4.5 s by default) and prints every reading and
 active insight;
-`StatBar --snapshot file.png` renders the popover's cards to an image.
+`StatBar --snapshot file.png` renders the popover's cards to an image after 40 seconds.
+Add `--snapshot-light` for light appearance. Launch-only defaults
+such as `-showCoreDetails YES`, `-showMemoryDetails YES`, `-showPowerDetails YES`
+and `-showNetworkDetails YES` expand details for diagnostics without changing
+the saved disclosure preferences.
 
 ## Test
 
 ```sh
-xcodebuild -project StatBar.xcodeproj -scheme StatBar -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test
+./scripts/check-macos.sh test
 ```
+
+For optimized reader benchmarks (median and p95, with no machine-specific pass/fail
+thresholds):
+
+```sh
+./scripts/check-macos.sh benchmark
+```
+
+Both commands regenerate the Xcode project and save the full log and `.xcresult`
+under the ignored `build/checks` directory. Benchmarks enable testability for the
+Release test host. To measure a built app's CPU and sampled resident memory with
+the popover closed:
+
+```sh
+python3 scripts/measure-idle.py build/run/Build/Products/Release/StatBar.app/Contents/MacOS/StatBar
+```
+
+The profiler runs a separate copy, suppresses its notifications using launch-only
+defaults, and terminates only that copy. See [performance validation](docs/performance.md)
+for measured results and their limits. Logs and snapshots can contain local system
+details; keep them in ignored build directories.
 
 ## License
 

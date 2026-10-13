@@ -190,6 +190,21 @@ final class ReviewFixTests: XCTestCase {
         XCTAssertTrue(engine.active.isEmpty, "an hour asleep doesn't count as an hour offline")
     }
 
+    func testResetDoesNotReusePreSleepBusyProcessReadings() {
+        var engine = InsightEngine()
+        var signals = Signals()
+        signals.now = start
+        signals.processes = [ProcessUsage(name: "Renderer", cpu: 300, memory: 0, count: 1)]
+        engine.update(signals)
+        engine.resetPending()
+        signals.processes = nil
+        signals.now = start.addingTimeInterval(3600)
+        engine.update(signals)
+        signals.now.addTimeInterval(120)
+        engine.update(signals)
+        XCTAssertTrue(engine.active.isEmpty, "wait for a fresh process sample after wake")
+    }
+
     func testSMCGarbageIsRejected() {
         let nan = Float.nan.bitPattern
         let bytes = [UInt8(nan & 0xFF), UInt8(nan >> 8 & 0xFF), UInt8(nan >> 16 & 0xFF), UInt8(nan >> 24)]

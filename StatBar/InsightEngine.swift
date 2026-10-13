@@ -344,6 +344,8 @@ struct InsightEngine {
         firstSeen = [:]
         blockerSince = [:]
         swapSamples = []
+        lastProcesses = []
+        lastBlockers = []
     }
 
     private mutating func log(_ title: String, detail: String? = nil, symbol: String, severity: Insight.Severity, now: Date) {

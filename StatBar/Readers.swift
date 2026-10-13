@@ -50,6 +50,10 @@ struct CPUReader {
         return Self.loads(from: previous, to: current)
     }
 
+    mutating func reset() {
+        previous = []
+    }
+
     static func loads(from old: [Ticks], to new: [Ticks]) -> [Double] {
         guard old.count == new.count else { return [] }
         return zip(old, new).map { old, new in
