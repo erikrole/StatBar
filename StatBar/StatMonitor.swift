@@ -42,6 +42,9 @@ final class StatMonitor {
     private(set) var readRate: Double = 0
     private(set) var writeRate: Double = 0
     private(set) var fanSpeeds: [Double] = []
+    /// True after the SMC has been asked at least once. The heat section uses this to
+    /// tell "still reading" from "this Mac has no fan data".
+    private(set) var hasReadFans = false
     private(set) var thermalState: ProcessInfo.ThermalState = .nominal
     private(set) var processes: [ProcessUsage] = []
 
@@ -320,6 +323,20 @@ final class StatMonitor {
         }
     }
 
+    /// Fan RPM only appears in the popover. Polling the SMC on the background detail
+    /// round would wake it every half minute for a number nobody is looking at.
+    private func readFansIfNeeded() {
+        guard Self.shouldReadFans(popoverVisible: isPopoverVisible, hasReadFans: hasReadFans) else { return }
+        fanSpeeds = fans?.speeds() ?? []
+        hasReadFans = true
+    }
+
+    /// The idle detail round must not touch the SMC. The first read still runs so a
+    /// fanless Mac is not stuck on "Reading fans…", and an open popover keeps RPM live.
+    nonisolated static func shouldReadFans(popoverVisible: Bool, hasReadFans: Bool) -> Bool {
+        popoverVisible || !hasReadFans
+    }
+
     /// Interface names, addresses, link speed and VPN change rarely; read them with the popover open.
     private func sampleNetworkDetails() {
         guard let name = network.interfaceName else { return }
@@ -355,7 +372,7 @@ final class StatMonitor {
         // Synchronous OS reads cannot be forcibly cancelled. Keep their slot until they
         // return, even across pause/resume, so a stalled drive cannot accumulate tasks.
         guard !isPaused else { return }
-        fanSpeeds = fans?.speeds() ?? []
+        readFansIfNeeded()
         sampleNetworkDetails()
         guard detailTask == nil else { return }
         // Volumes, disk counters, sleep assertions and `ps` can each block for a while

@@ -41,7 +41,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
         configureStatusItem()
         monitor.onSample = { [weak self] in self?.updateStatusItemIfNeeded() }
-        configureOutsideClickMonitor()
         observeScreenSleep()
         monitor.start()
     }
@@ -71,34 +70,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         return image?.size.width ?? 16
     }
 
-    private func configureOutsideClickMonitor() {
+    /// Clicks in other apps, and only while the popover is up. A monitor left installed
+    /// for the life of the process wakes StatBar on every mouse-down in the system.
+    private func beginOutsideClickMonitoring() {
+        guard outsideClickMonitor == nil else { return }
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                guard let self, self.popover?.isShown == true else { return }
-                self.popover?.performClose(nil)
+                self?.closePopoverFromOutsideClick()
             }
         }
     }
 
+    private func endOutsideClickMonitoring() {
+        guard let token = outsideClickMonitor else { return }
+        NSEvent.removeMonitor(token)
+        outsideClickMonitor = nil
+    }
+
+    private func closePopoverFromOutsideClick() {
+        guard popover?.isShown == true else { return }
+        popover?.performClose(nil)
+    }
+
     /// Built on first open. An unshown popover still owns a window.
     private func makePopover() -> NSPopover {
-        if let popover { return popover }
-        let popover = NSPopover()
-        popover.behavior = .transient
-        popover.animates = false
-        popover.delegate = self
-        popover.contentSize = NSSize(width: 360, height: 600)
-        self.popover = popover
-        return popover
+        if let existing = popover { return existing }
+        let created = NSPopover()
+        created.behavior = .transient
+        created.animates = false
+        created.delegate = self
+        created.contentSize = NSSize(width: 360, height: 600)
+        popover = created
+        return created
     }
 
     /// The SwiftUI popover is built when it opens and torn down when it closes; a hidden
     /// NSHostingController still re-renders on every sample, which cost ~13% CPU.
     private func makePopoverContent() {
-        let popover = makePopover()
-        popover.contentViewController = NSHostingController(
+        makePopover().contentViewController = NSHostingController(
             rootView: StatBarView(monitor: monitor, launchAtLogin: launchAtLogin)
         )
     }
@@ -119,20 +130,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     func popoverDidShow(_ notification: Notification) {
         monitor.setPopoverVisible(true)
+        beginOutsideClickMonitoring()
     }
 
     func popoverDidClose(_ notification: Notification) {
         monitor.setPopoverVisible(false)
         popover?.contentViewController = nil
+        endOutsideClickMonitoring()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         monitor.stop()
         sleepTask?.cancel()
         wakeTask?.cancel()
-        if let outsideClickMonitor {
-            NSEvent.removeMonitor(outsideClickMonitor)
-        }
+        endOutsideClickMonitoring()
     }
 
     /// CPU percentage beside a gauge. Warnings replace the gauge with a triangle.
@@ -238,13 +249,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     @objc private func togglePopover(_ sender: Any?) {
         guard let button = statusItem?.button else { return }
-        let popover = makePopover()
-        if popover.isShown {
-            popover.performClose(sender)
+        let panel = makePopover()
+        if panel.isShown {
+            panel.performClose(sender)
         } else {
             makePopoverContent()
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            popover.contentViewController?.view.window?.becomeKey()
+            panel.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            panel.contentViewController?.view.window?.becomeKey()
         }
     }
 }
