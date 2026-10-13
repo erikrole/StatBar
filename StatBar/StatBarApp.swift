@@ -16,16 +16,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var appliedPresentation: MenuBarPresentation?
     private var statusImages: [MenuBarAttention: NSImage] = [:]
     /// `NSApplication.delegate` is weak, so the process has to own this.
-    nonisolated(unsafe) private static var retained: AppDelegate?
+    private static var retained: AppDelegate?
 
-    nonisolated static func main() {
-        MainActor.assumeIsolated {
-            let app = NSApplication.shared
-            let delegate = AppDelegate()
-            retained = delegate
-            app.delegate = delegate
-            app.run()
-        }
+    @MainActor
+    static func main() {
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        retained = delegate
+        app.delegate = delegate
+        app.run()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {

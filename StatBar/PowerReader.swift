@@ -71,11 +71,11 @@ enum PowerReader {
         func int(_ key: String) -> Int64? { (battery[key] as? NSNumber)?.int64Value }
         func bool(_ key: String) -> Bool { (battery[key] as? NSNumber)?.boolValue ?? false }
 
-        guard let current = int("CurrentCapacity"), let max = int("MaxCapacity"), max > 0 else { return nil }
-        let ratio = Double(current) / Double(max) * 100
-        // Clamp before Int(_:). A broken capacity pair can be far outside 0...100
-        // and the conversion traps.
-        let percent = ratio.isFinite ? Int(min(max(ratio.rounded(), 0), 100)) : 0
+        guard let current = int("CurrentCapacity"), let maximum = int("MaxCapacity"), maximum > 0 else { return nil }
+        let ratio = Double(current) / Double(maximum) * 100
+        // `maximum` would shadow Swift.max. Clamp before Int(_:): a broken capacity
+        // pair can sit far outside 0...100, and that conversion traps.
+        let percent = ratio.isFinite ? Int(Swift.min(Swift.max(ratio.rounded(), 0), 100)) : 0
         let isCharging = bool("IsCharging")
         let timeKey = isCharging ? "AvgTimeToFull" : "AvgTimeToEmpty"
         // 65535 means "still calculating".
