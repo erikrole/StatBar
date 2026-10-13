@@ -391,7 +391,7 @@ struct StatBarView: View {
 
     private func batterySymbol(_ battery: BatterySnapshot) -> String {
         if battery.isCharging { return "battery.100percent.bolt" }
-        switch battery.percent {
+        return switch battery.percent {
         case ..<13: "battery.0percent"
         case ..<38: "battery.25percent"
         case ..<63: "battery.50percent"
