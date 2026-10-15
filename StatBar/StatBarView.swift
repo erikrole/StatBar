@@ -65,8 +65,9 @@ struct StatBarView: View {
                 DisclosureGroup {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(monitor.recentEvents) { event in
-                            HStack(spacing: 6) {
-                                Image(systemName: event.symbol).frame(width: 16)
+                            HStack(alignment: .center, spacing: 8) {
+                                Image(systemName: event.symbol)
+                                    .frame(width: 16)
                                 Text(event.title)
                                 if let detail = event.detail { Text("· \(detail)").foregroundStyle(.tertiary) }
                                 Spacer()
@@ -102,35 +103,36 @@ struct StatBarView: View {
     }
 
     private var computeCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             Divider()
-            HStack(spacing: 12) {
-                computeMetric("CPU", value: Format.percent(monitor.cpu), history: monitor.cpuHistory)
-                Divider()
-                computeMetric("GPU", value: monitor.gpu.map(Format.percent) ?? "–", history: monitor.gpuHistory)
-            }
-            .fixedSize(horizontal: false, vertical: true)
-            if !monitor.coreGroups.isEmpty {
-                Details(isExpanded: $showCoreDetails, label: "CPU cores") {
-                    ForEach(monitor.coreGroups) { group in
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack {
-                                Text("\(group.name) · \(group.coreCount) cores")
-                                Spacer()
-                                Text(Format.percent(group.load)).monospacedDigit()
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 12) {
+                    computeMetric("CPU", value: Format.percent(monitor.cpu), history: monitor.cpuHistory)
+                    Divider()
+                    computeMetric("GPU", value: monitor.gpu.map(Format.percent) ?? "–", history: monitor.gpuHistory)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                if !monitor.coreGroups.isEmpty {
+                    Details(isExpanded: $showCoreDetails, label: "CPU cores") {
+                        ForEach(monitor.coreGroups) { group in
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(alignment: .firstTextBaseline) {
+                                    Text("\(group.name) · \(group.coreCount) cores")
+                                    Spacer(minLength: 8)
+                                    Text(Format.percent(group.load)).monospacedDigit()
+                                }
+                                CoreBars(loads: group.coreLoads)
                             }
-                            CoreBars(loads: group.coreLoads)
                         }
                     }
                 }
             }
+            .padding(.vertical, 10)
         }
-        .padding(.top, 8)
-        .padding(.bottom, 10)
     }
 
     private func computeMetric(_ title: String, value: String, history: [Double]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 Text(title)
                 Spacer(minLength: 4)
@@ -208,7 +210,7 @@ struct StatBarView: View {
     private var networkCard: some View {
         let network = monitor.network
         let status: (String, Color) = switch monitor.internetReachable {
-        case .some(true): ("Online", .primary)
+        case .some(true): ("Online", .secondary)
         case .some(false): ("Offline", .red)
         case .none: ("Checking", .secondary)
         }
@@ -241,18 +243,19 @@ struct StatBarView: View {
             Divider()
             Card(title: "Disks", value: nil) {
                 ForEach(monitor.volumes) { volume in
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack {
+                    let status: Color = volume.usedFraction > 0.9 ? .orange : .secondary
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .center, spacing: 6) {
                             Image(systemName: volume.isInternal ? "internaldrive" : "externaldrive")
                                 .foregroundStyle(.secondary)
                             Text(volume.name).lineLimit(1)
-                            Spacer()
+                            Spacer(minLength: 8)
                             Text("\(Format.diskBytes(volume.available)) free")
                                 .monospacedDigit()
-                                .foregroundStyle(volume.usedFraction > 0.9 ? Color.orange : Color.secondary)
+                                .foregroundStyle(status)
                         }
                         .font(.caption)
-                        UsageBar(fraction: volume.usedFraction, tint: volume.usedFraction > 0.9 ? .orange : .primary)
+                        UsageBar(fraction: volume.usedFraction, tint: status)
                     }
                     .contentShape(Rectangle())
                     .onTapGesture { NSWorkspace.shared.open(volume.url) }
@@ -307,12 +310,12 @@ struct StatBarView: View {
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(topProcesses) { process in
-                        HStack {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text(process.name).lineLimit(1)
                             if process.count > 1 {
                                 Text("×\(process.count)").foregroundStyle(.tertiary)
                             }
-                            Spacer()
+                            Spacer(minLength: 8)
                             Text(processSort == .cpu ? Format.processPercent(process.cpu) : Format.bytes(process.memory))
                                 .monospacedDigit()
                                 .foregroundStyle(.secondary)
@@ -362,6 +365,7 @@ struct StatBarView: View {
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
+            .controlSize(.small)
             .fixedSize()
             .help("Alerts, launch at login, and quit")
             .accessibilityLabel("StatBar settings")
@@ -369,13 +373,13 @@ struct StatBarView: View {
         .font(.caption)
         .foregroundStyle(.secondary)
         .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
     }
 
-    /// Healthy pressure stays in ink. Color shows up only once the Mac is under load.
+    /// Healthy readings stay in secondary ink. Orange and red show up only under load.
     private func pressureColor(_ pressure: MemorySnapshot.Pressure) -> Color {
         switch pressure {
-        case .normal: .primary
+        case .normal: .secondary
         case .warning: .orange
         case .critical: .red
         }
@@ -383,10 +387,10 @@ struct StatBarView: View {
 
     /// Matches the attention list: under 20% on battery, and under 10% is critical.
     private func batteryTint(_ battery: BatterySnapshot) -> Color {
-        guard !battery.isPluggedIn else { return .primary }
+        guard !battery.isPluggedIn else { return .secondary }
         if battery.percent <= 10 { return .red }
         if battery.percent <= 20 { return .orange }
-        return .primary
+        return .secondary
     }
 
     private func batterySymbol(_ battery: BatterySnapshot) -> String {
@@ -417,27 +421,29 @@ struct StatBarView: View {
 private struct Card<Content: View>: View {
     let title: String
     let value: String?
-    var valueColor: Color = .primary
+    var valueColor: Color = .secondary
     var symbol: String?
     @ViewBuilder let content: Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
+            HStack(alignment: .center, spacing: 6) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
                 if let symbol {
-                    Label(title, systemImage: symbol)
+                    Image(systemName: symbol)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                         .symbolRenderingMode(.monochrome)
-                } else {
-                    Text(title)
+                        .accessibilityHidden(true)
                 }
                 Spacer(minLength: 8)
                 if let value {
                     Text(value)
-                        .monospacedDigit()
+                        .font(.subheadline.weight(.semibold).monospacedDigit())
                         .foregroundStyle(valueColor)
                 }
             }
-            .font(.subheadline.weight(.semibold))
             content
         }
         .padding(.vertical, 10)
@@ -474,7 +480,7 @@ private struct InsightRow: View {
             Image(systemName: insight.symbol)
                 .foregroundStyle(color)
                 .symbolRenderingMode(.monochrome)
-                .frame(width: 18)
+                .frame(width: 16, alignment: .center)
             VStack(alignment: .leading, spacing: 2) {
                 Text(insight.title)
                     .font(.subheadline.weight(.semibold))
@@ -494,7 +500,7 @@ private struct InsightRow: View {
         switch insight.severity {
         case .critical: .red
         case .warning: .orange
-        case .info: .primary
+        case .info: .secondary
         }
     }
 }
@@ -511,7 +517,9 @@ private struct StatRow: View {
     var body: some View {
         GridRow {
             Text(label).foregroundStyle(.secondary)
-            Text(value).monospacedDigit()
+            Text(value)
+                .monospacedDigit()
+                .gridColumnAlignment(.trailing)
         }
     }
 }
@@ -559,7 +567,7 @@ private struct RateGraph: View {
     let symbol: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 4) {
             Label(Format.rate(rate), systemImage: symbol)
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
