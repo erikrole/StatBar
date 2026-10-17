@@ -43,6 +43,10 @@ covers the whole machine.
 - **Heat:** macOS thermal state (whether the Mac is throttling) and fan speeds.
 - **Top apps:** by CPU or memory, with helper processes counted as their app.
 
+Charts use blue for CPU, cores and downloads, purple for GPU, teal for disks,
+and orange for uploads. Healthy memory, battery and network indicators are green;
+warning and critical readings retain their yellow, orange and red cues.
+
 Detail sections start collapsed and remember their state, along with the Top apps
 sort order, when the popover reopens. The fixed footer keeps Activity Monitor one
 click away; its settings menu contains Alerts, Launch at login and Quit StatBar.

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Restore blue CPU charts, purple GPU charts, teal disk bars, blue/orange network graphs,
+  and green healthy status indicators while retaining the compact layout.
 - Remove redundant menu-bar padding while keeping the CPU indicator's width stable
   across percentages and warning states.
 

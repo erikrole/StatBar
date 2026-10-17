@@ -107,9 +107,9 @@ struct StatBarView: View {
             Divider()
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 12) {
-                    computeMetric("CPU", value: Format.percent(monitor.cpu), history: monitor.cpuHistory)
+                    computeMetric("CPU", value: Format.percent(monitor.cpu), history: monitor.cpuHistory, tint: .blue)
                     Divider()
-                    computeMetric("GPU", value: monitor.gpu.map(Format.percent) ?? "–", history: monitor.gpuHistory)
+                    computeMetric("GPU", value: monitor.gpu.map(Format.percent) ?? "–", history: monitor.gpuHistory, tint: .purple)
                 }
                 .fixedSize(horizontal: false, vertical: true)
                 if !monitor.coreGroups.isEmpty {
@@ -131,7 +131,7 @@ struct StatBarView: View {
         }
     }
 
-    private func computeMetric(_ title: String, value: String, history: [Double]) -> some View {
+    private func computeMetric(_ title: String, value: String, history: [Double], tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 Text(title)
@@ -139,7 +139,7 @@ struct StatBarView: View {
                 Text(value).monospacedDigit()
             }
             .font(.subheadline.weight(.semibold))
-            Sparkline(values: history, height: 28)
+            Sparkline(values: history, tint: tint, height: 28)
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
@@ -210,7 +210,7 @@ struct StatBarView: View {
     private var networkCard: some View {
         let network = monitor.network
         let status: (String, Color) = switch monitor.internetReachable {
-        case .some(true): ("Online", .secondary)
+        case .some(true): ("Online", .green)
         case .some(false): ("Offline", .red)
         case .none: ("Checking", .secondary)
         }
@@ -218,8 +218,8 @@ struct StatBarView: View {
             Divider()
             Card(title: "Network", value: status.0, valueColor: status.1, symbol: network.transport.symbolName) {
                 HStack(spacing: 12) {
-                    RateGraph(label: "Down", rate: monitor.downloadRate, values: monitor.downloadHistory, symbol: "arrow.down")
-                    RateGraph(label: "Up", rate: monitor.uploadRate, values: monitor.uploadHistory, symbol: "arrow.up")
+                    RateGraph(label: "Down", rate: monitor.downloadRate, values: monitor.downloadHistory, tint: .blue, symbol: "arrow.down")
+                    RateGraph(label: "Up", rate: monitor.uploadRate, values: monitor.uploadHistory, tint: .orange, symbol: "arrow.up")
                 }
                 Details(isExpanded: $showNetworkDetails, label: network.displayName ?? network.transport.rawValue) {
                     Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 3) {
@@ -255,7 +255,7 @@ struct StatBarView: View {
                                 .foregroundStyle(status)
                         }
                         .font(.caption)
-                        UsageBar(fraction: volume.usedFraction, tint: status)
+                        UsageBar(fraction: volume.usedFraction, tint: volume.usedFraction > 0.9 ? .orange : .teal)
                     }
                     .contentShape(Rectangle())
                     .onTapGesture { NSWorkspace.shared.open(volume.url) }
@@ -376,21 +376,20 @@ struct StatBarView: View {
         .padding(.vertical, 10)
     }
 
-    /// Healthy readings stay in secondary ink. Orange and red show up only under load.
     private func pressureColor(_ pressure: MemorySnapshot.Pressure) -> Color {
         switch pressure {
-        case .normal: .secondary
-        case .warning: .orange
+        case .normal: .green
+        case .warning: .yellow
         case .critical: .red
         }
     }
 
     /// Matches the attention list: under 20% on battery, and under 10% is critical.
     private func batteryTint(_ battery: BatterySnapshot) -> Color {
-        guard !battery.isPluggedIn else { return .secondary }
+        guard !battery.isPluggedIn else { return .green }
         if battery.percent <= 10 { return .red }
         if battery.percent <= 20 { return .orange }
-        return .secondary
+        return .green
     }
 
     private func batterySymbol(_ battery: BatterySnapshot) -> String {
@@ -407,8 +406,9 @@ struct StatBarView: View {
     private var thermalColor: Color {
         switch monitor.thermalState {
         case .nominal: .secondary
-        case .fair: .orange
-        case .serious, .critical: .red
+        case .fair: .yellow
+        case .serious: .orange
+        case .critical: .red
         @unknown default: .secondary
         }
     }
@@ -528,6 +528,7 @@ private struct StatRow: View {
 /// same but cost several times more to redraw every two seconds.
 private struct Sparkline: View {
     let values: [Double]
+    let tint: Color
     var height: CGFloat = 36
 
     var body: some View {
@@ -552,8 +553,8 @@ private struct Sparkline: View {
             area.addLine(to: CGPoint(x: size.width, y: size.height))
             area.addLine(to: CGPoint(x: startX, y: size.height))
             area.closeSubpath()
-            context.fill(area, with: .color(.primary.opacity(0.08)))
-            context.stroke(line, with: .color(.primary), style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
+            context.fill(area, with: .color(tint.opacity(0.18)))
+            context.stroke(line, with: .color(tint), style: StrokeStyle(lineWidth: 1.2, lineCap: .round, lineJoin: .round))
         }
         .frame(height: height)
         .accessibilityHidden(true)
@@ -564,6 +565,7 @@ private struct RateGraph: View {
     let label: String
     let rate: Double
     let values: [Double]
+    let tint: Color
     let symbol: String
 
     var body: some View {
@@ -574,7 +576,7 @@ private struct RateGraph: View {
                 .symbolRenderingMode(.monochrome)
                 .accessibilityLabel("\(label) \(Format.rate(rate))")
             let peak = max(values.max() ?? 0, 1)
-            Sparkline(values: values.map { $0 / peak }, height: 28)
+            Sparkline(values: values.map { $0 / peak }, tint: tint, height: 28)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -596,7 +598,7 @@ private struct CoreBars: View {
                 let barHeight = max(1.5, size.height * fraction)
                 let bar = CGRect(x: x, y: size.height - barHeight, width: width, height: barHeight)
                 context.fill(Path(roundedRect: track, cornerRadius: 1.5), with: .color(.primary.opacity(0.12)))
-                let ink: Color = fraction > 0.85 ? .orange : .primary
+                let ink: Color = fraction > 0.85 ? .orange : .blue
                 context.fill(Path(roundedRect: bar, cornerRadius: 1.5), with: .color(ink))
             }
         }
