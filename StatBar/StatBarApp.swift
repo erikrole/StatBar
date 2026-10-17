@@ -47,27 +47,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     private func configureStatusItem() {
         let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
-        let textWidth = ("100%" as NSString).size(withAttributes: [.font: font]).width
-        let iconWidth = max(
-            symbolWidth("gauge.with.dots.needle.33percent"),
-            symbolWidth("exclamationmark.triangle")
-        )
-        // Fixed width: a change from 9% to 10% must not reflow every other menu bar icon.
-        let length = iconWidth + textWidth + 32
-        let item = NSStatusBar.system.statusItem(withLength: length)
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         guard let button = item.button else { return }
         button.target = self
         button.action = #selector(togglePopover(_:))
         button.imagePosition = .imageLeading
         button.imageHugsTitle = true
         button.font = font
+        // Measure the widest contents once. macOS supplies the status item's outer
+        // padding; adding our own made the menu bar pill unnecessarily wide.
+        // Keep this width fixed so changing percentages never moves nearby items.
+        button.title = "100%"
+        let contentWidth = [MenuBarAttention.none, .warning, .critical].map { attention in
+            button.image = statusImage(for: attention)
+            return button.fittingSize.width
+        }.max() ?? 0
+        item.length = ceil(contentWidth)
         statusItem = item
-    }
-
-    private func symbolWidth(_ name: String) -> CGFloat {
-        let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
-            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 13, weight: .medium))
-        return image?.size.width ?? 16
+        updateStatusItemIfNeeded()
     }
 
     /// Clicks in other apps, and only while the popover is up. A monitor left installed

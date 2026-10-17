@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Remove redundant menu-bar padding while keeping the CPU indicator's width stable
+  across percentages and warning states.
+
 ## 0.1.0 — 2026-10-12
 
 Initial signed and notarized release for Apple Silicon on macOS 27 or later.

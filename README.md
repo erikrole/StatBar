@@ -6,7 +6,8 @@ from-scratch take on the idea behind iStat Menus, and it absorbs the battery and
 network views that used to live in PowerBar and NetBar, so one menu bar item
 covers the whole machine.
 
-- **Menu bar:** CPU percentage beside a gauge. The item is a fixed width and is redrawn
+- **Menu bar:** CPU percentage beside a gauge. The item measures its widest contents
+  once, leaving outer padding to macOS, and keeps that compact width fixed. It is redrawn
   only when that percentage or the attention state changes. A warning replaces the
   gauge with a yellow triangle; a critical condition uses a red one.
 - **Now:** a short list of what needs attention, most serious first, and a log of what
