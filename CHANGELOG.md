@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1 - 2026-10-23
+
+- Add signed ZIP self-updates through AppUpdater, preserving save and busy safeguards.
+- Publish a notarized Apple Silicon release requiring macOS 27 or later.
+
 ## Unreleased
 
 - Restore blue CPU charts, purple GPU charts, teal disk bars, blue/orange network graphs,

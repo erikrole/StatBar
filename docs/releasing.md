@@ -87,3 +87,7 @@ verification passed.
 
 The source validation and remaining hardware/UI verification limits are recorded
 in [performance.md](performance.md).
+
+## Verified updater release: 0.1.1 (build 2)
+
+Published October 23, 2026 at [StatBar 0.1.1](https://github.com/erikrole/StatBar/releases/tag/v0.1.1). Source commit: `e35451c0088208307a1a92ce9f2a8bffd00debf5`. The app and its owned extensions/helpers require macOS 27.0 in Info.plist and Mach-O. The arm64 ZIP is Developer ID signed with Team `T26T3G8C7Q`, accepted by Apple notarization, stapled, and accepted by Gatekeeper after fresh extraction. ZIP/checksum/provenance digests match GitHub. Host tests: 53 reported, 0 skipped, zero failures. AppUpdater’s live download/verification path also passed for this public release.

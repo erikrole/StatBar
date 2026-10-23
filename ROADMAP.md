@@ -14,4 +14,4 @@ simplified footer are implemented.
   for 0.1.0. The ZIP and checksum are published on GitHub; see
   [releasing](docs/releasing.md). Homebrew remains deferred.
 
-- October 23: AppUpdater ZIP integration is prepared against package `5b5a941`, retaining macOS 27 and existing save/busy/quit safeguards. A new host release is still required; see README App updates.
+- October 23: [StatBar 0.1.1](https://github.com/erikrole/StatBar/releases/tag/v0.1.1) is published with AppUpdater ZIP support. macOS 27, signing, notarization, fresh-extraction Gatekeeper checks, and the public update feed are verified. Installed update/relaunch acceptance remains a separate check.
