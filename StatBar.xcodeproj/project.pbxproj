@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		02D7AA1E5958080EAB4E1963 /* Readers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91754DC25FBB12DD5AE38CA8 /* Readers.swift */; };
+		2B5A1CE0ED8EDA1CF87968A4 /* AppUpdater in Frameworks */ = {isa = PBXBuildFile; productRef = BC2E422F09039B50705634BE /* AppUpdater */; };
 		3A91C0E74B6D8F1520C4A7E1 /* Format.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D4F2B19C0A653E7B41D9F28 /* Format.swift */; };
 		5D3116E76D672D762C820308 /* InsightEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD164BA38F8694276F3E4E0B /* InsightEngine.swift */; };
 		74219C8F83730C8C52B0EB41 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3536D3AA5C2FD4690B3A4E4 /* LaunchAtLoginController.swift */; };
@@ -17,6 +18,7 @@
 		A9FF2EA63B203EFBEF47A391 /* InsightEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07996F611F57265DA8D21E73 /* InsightEngineTests.swift */; };
 		B61A97B98B82CA168867A8DE /* ReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7426C42209A6485335CF470A /* ReaderTests.swift */; };
 		C7FC14350B97206DA350A4C3 /* StatBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07CBB179B5C64C04F51D7B17 /* StatBarApp.swift */; };
+		C82B272F454970049AB9A959 /* AppUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCDBCAF9E511FD19823F99F9 /* AppUpdate.swift */; };
 		DFA5ACAE0D4690E010E62DB3 /* PerformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EF49E87C9779A3B008107D6 /* PerformanceTests.swift */; };
 		E9835573C6503C553FA3F334 /* StatMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 550338DD53302FA605A1AC19 /* StatMonitorTests.swift */; };
 		F17C2A90B4E86D3C51A0F9B4 /* MetricFormatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B0E8C35D1A947F2E4C7B018 /* MetricFormatTests.swift */; };
@@ -47,11 +49,23 @@
 		77CC8A2F74C8D968564CD4BB /* NetworkReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkReader.swift; sourceTree = "<group>"; };
 		91754DC25FBB12DD5AE38CA8 /* Readers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Readers.swift; sourceTree = "<group>"; };
 		BCA8C85862AA7E6D9249279F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		DCDBCAF9E511FD19823F99F9 /* AppUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdate.swift; sourceTree = "<group>"; };
 		E9EE0ED2C79A45A848349176 /* StatMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatMonitor.swift; sourceTree = "<group>"; };
 		EEEED98D4F3CD67BBBB9F5B1 /* StatBarTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StatBarTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F3536D3AA5C2FD4690B3A4E4 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
 		FD164BA38F8694276F3E4E0B /* InsightEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightEngine.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		56C8BB07FE585DBE62A8C6A3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2B5A1CE0ED8EDA1CF87968A4 /* AppUpdater in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		24123809BCA1C81F8F44B66E /* Products */ = {
@@ -66,6 +80,7 @@
 		2C2E54FFF23F21B078AF102F /* StatBar */ = {
 			isa = PBXGroup;
 			children = (
+				DCDBCAF9E511FD19823F99F9 /* AppUpdate.swift */,
 				BCA8C85862AA7E6D9249279F /* Info.plist */,
 				8D4F2B19C0A653E7B41D9F28 /* Format.swift */,
 				FD164BA38F8694276F3E4E0B /* InsightEngine.swift */,
@@ -109,6 +124,7 @@
 			buildConfigurationList = 6734DE389FE59738E2ED69E3 /* Build configuration list for PBXNativeTarget "StatBar" */;
 			buildPhases = (
 				332B85A9CF95EE54E0577E6B /* Sources */,
+				56C8BB07FE585DBE62A8C6A3 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -116,6 +132,7 @@
 			);
 			name = StatBar;
 			packageProductDependencies = (
+				BC2E422F09039B50705634BE /* AppUpdater */,
 			);
 			productName = StatBar;
 			productReference = 5DF23135E0E629EBA7E5DF18 /* StatBar.app */;
@@ -166,6 +183,9 @@
 			);
 			mainGroup = 435B2999948BE7C52494CF16;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				6240ABC8FE34F7131BFF91FA /* XCRemoteSwiftPackageReference "AppUpdater" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 24123809BCA1C81F8F44B66E /* Products */;
 			projectDirPath = "";
@@ -182,6 +202,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C82B272F454970049AB9A959 /* AppUpdate.swift in Sources */,
 				5D3116E76D672D762C820308 /* InsightEngine.swift in Sources */,
 				74219C8F83730C8C52B0EB41 /* LaunchAtLoginController.swift in Sources */,
 				915D476571055427782D1940 /* NetworkReader.swift in Sources */,
@@ -457,6 +478,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		6240ABC8FE34F7131BFF91FA /* XCRemoteSwiftPackageReference "AppUpdater" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/erikrole/AppUpdater.git";
+			requirement = {
+				kind = revision;
+				revision = 5b5a9411078b79ad92e36bf9d965ecd94b66b420;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		BC2E422F09039B50705634BE /* AppUpdater */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6240ABC8FE34F7131BFF91FA /* XCRemoteSwiftPackageReference "AppUpdater" */;
+			productName = AppUpdater;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E21CC62264861C4CEF25BBDE /* Project object */;
 }

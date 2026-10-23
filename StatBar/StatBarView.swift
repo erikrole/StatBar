@@ -358,6 +358,7 @@ struct StatBarView: View {
                     Button("Open Login Items Settings…") { launchAtLogin.openSettings() }
                 }
                 Divider()
+                Button("Check for Updates…") { AppUpdate.checkNow() }
                 Button("Quit StatBar") { NSApp.terminate(nil) }
                     .keyboardShortcut("q")
             } label: {

@@ -43,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         monitor.onSample = { [weak self] in self?.updateStatusItemIfNeeded() }
         observeScreenSleep()
         monitor.start()
+        AppUpdate.checkOnLaunch()
     }
 
     private func configureStatusItem() {
@@ -134,6 +135,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         monitor.setPopoverVisible(false)
         popover?.contentViewController = nil
         endOutsideClickMonitoring()
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        AppUpdate.isPreparing ? .terminateCancel : .terminateNow
     }
 
     func applicationWillTerminate(_ notification: Notification) {

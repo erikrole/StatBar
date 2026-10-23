@@ -3,6 +3,10 @@ options:
   bundleIdPrefix: com.erole
   deploymentTarget:
     macOS: "27.0"
+packages:
+  AppUpdater:
+    url: https://github.com/erikrole/AppUpdater.git
+    revision: 5b5a9411078b79ad92e36bf9d965ecd94b66b420
 settings:
   base:
     SWIFT_VERSION: 6.0
@@ -14,6 +18,8 @@ targets:
     platform: macOS
     sources:
       - StatBar
+    dependencies:
+      - package: AppUpdater
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.erole.StatBar
