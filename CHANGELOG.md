@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2 - 2026-10-26
+
+- Install stable updates automatically at launch (Settings > Update automatically, on by default). A failed update stops retrying after two tries.
+
 ## 0.1.1 - 2026-10-23
 
 - Add signed ZIP self-updates through AppUpdater, preserving save and busy safeguards.

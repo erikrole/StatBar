@@ -7,6 +7,7 @@ struct StatBarView: View {
     @AppStorage("processSort") private var processSort: ProcessSort = .cpu
     @AppStorage("showCoreDetails") private var showCoreDetails = false
     @AppStorage("showMemoryDetails") private var showMemoryDetails = false
+    @AppStorage(AppUpdate.autoUpdateKey) private var autoUpdate = true
     @AppStorage("showPowerDetails") private var showPowerDetails = false
     @AppStorage("showNetworkDetails") private var showNetworkDetails = false
     /// Set by `--snapshot`, which can't draw AppKit controls such as the segmented picker.
@@ -358,6 +359,7 @@ struct StatBarView: View {
                     Button("Open Login Items Settings…") { launchAtLogin.openSettings() }
                 }
                 Divider()
+                Toggle("Update automatically", isOn: $autoUpdate)
                 Button("Check for Updates…") { AppUpdate.checkNow() }
                 Button("Quit StatBar") { NSApp.terminate(nil) }
                     .keyboardShortcut("q")
