@@ -6,8 +6,10 @@ import SwiftUI
 @main
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
-    private let monitor = StatMonitor()
-    private let launchAtLogin = LaunchAtLoginController()
+    private let monitor: StatMonitor
+    private let launchMode: AppLaunchMode
+    private lazy var launchAtLogin = LaunchAtLoginController(managesService: !launchMode.isDiagnostic)
+    private var startupTask: Task<Void, Never>?
     private var popover: NSPopover?
     private var statusItem: NSStatusItem?
     private var outsideClickMonitor: Any?
@@ -18,10 +20,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// `NSApplication.delegate` is weak, so the process has to own this.
     private static var retained: AppDelegate?
 
+    private init(launchMode: AppLaunchMode) {
+        self.launchMode = launchMode
+        if launchMode.isDiagnostic {
+            // Argument-domain overrides are process-local; diagnostic runs must
+            // not request notification permission or alter saved preferences.
+            let defaults = UserDefaults.standard
+            var arguments = defaults.volatileDomain(forName: UserDefaults.argumentDomain)
+            arguments["notificationsEnabled"] = false
+            defaults.setVolatileDomain(arguments, forName: UserDefaults.argumentDomain)
+        }
+        monitor = StatMonitor()
+        super.init()
+    }
+
     @MainActor
     static func main() {
+        let launchMode: AppLaunchMode
+        do {
+            launchMode = try AppLaunchMode(arguments: Array(CommandLine.arguments.dropFirst()))
+        } catch {
+            FileHandle.standardError.write(Data("StatBar: \(error)\n".utf8))
+            exit(EXIT_FAILURE)
+        }
         let app = NSApplication.shared
-        let delegate = AppDelegate()
+        // Headless helpers must not participate in another copy's menu-bar
+        // election. This policy is visible through NSRunningApplication.
+        if launchMode.isHeadless { app.setActivationPolicy(.prohibited) }
+        let delegate = AppDelegate(launchMode: launchMode)
         retained = delegate
         app.delegate = delegate
         app.run()
@@ -29,35 +55,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
-        if let index = CommandLine.arguments.firstIndex(of: "--snapshot"),
-           CommandLine.arguments.indices.contains(index + 1) {
-            let path = CommandLine.arguments[index + 1]
-            Task { await snapshotAndExit(to: path) }
+        switch launchMode {
+        case let .snapshot(path, light):
+            Task { await snapshotAndExit(to: path, light: light) }
             return
-        }
-        if CommandLine.arguments.contains("--report") {
-            Task { await printReportAndExit() }
+        case let .report(seconds):
+            Task { await printReportAndExit(seconds: seconds) }
             return
+        case .normal, .measureIdle:
+            break
         }
-        guard ensureSoleInstance() else { return }
-        configureStatusItem()
-        monitor.onSample = { [weak self] in self?.updateStatusItemIfNeeded() }
-        observeScreenSleep()
-        monitor.start()
-        AppUpdate.checkOnLaunch()
+        startupTask = Task { [weak self] in
+            guard let self else { return }
+            if !launchMode.isDiagnostic {
+                guard await ensureSoleInstance(), !Task.isCancelled else { return }
+                // Initialize Login Items only after this copy wins the launch.
+                _ = launchAtLogin
+            }
+            configureStatusItem()
+            monitor.onSample = { [weak self] in self?.updateStatusItemIfNeeded() }
+            observeScreenSleep()
+            monitor.start()
+            if !launchMode.isDiagnostic { AppUpdate.checkOnLaunch() }
+        }
     }
 
     /// One menu bar icon only. Another copy (an installed app next to a build product, or the old
     /// copy still quitting during an update relaunch) gets a short grace period to exit; if it
     /// stays, this copy brings it forward and quits instead of adding a second icon.
-    private func ensureSoleInstance() -> Bool {
+    private func ensureSoleInstance() async -> Bool {
         guard let id = Bundle.main.bundleIdentifier else { return true }
-        let me = ProcessInfo.processInfo.processIdentifier
+        let current = NSRunningApplication.current
+        let me = AppInstance(processIdentifier: current.processIdentifier, launchDate: current.launchDate)
         func others() -> [NSRunningApplication] {
-            NSRunningApplication.runningApplications(withBundleIdentifier: id).filter { $0.processIdentifier != me && !$0.isTerminated }
+            NSRunningApplication.runningApplications(withBundleIdentifier: id).filter {
+                !$0.isTerminated && $0.activationPolicy != .prohibited
+                    && AppInstance(processIdentifier: $0.processIdentifier, launchDate: $0.launchDate).precedes(me)
+            }
         }
-        let deadline = Date().addingTimeInterval(5)
-        while !others().isEmpty, Date() < deadline { Thread.sleep(forTimeInterval: 0.2) }
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(5))
+        while !others().isEmpty, clock.now < deadline {
+            do { try await Task.sleep(for: .milliseconds(200)) }
+            catch { return false }
+        }
         guard let existing = others().first else { return true }
         existing.activate()
         NSApp.terminate(nil)
@@ -160,6 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        startupTask?.cancel()
         monitor.stop()
         sleepTask?.cancel()
         wakeTask?.cancel()
@@ -206,12 +248,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     /// `StatBar --report` samples for a few seconds, prints every reading and exits.
-    private func printReportAndExit() async {
+    private func printReportAndExit(seconds: Double) async {
         monitor.start()
         monitor.setPopoverVisible(true)
         // `--report 75` watches longer, so sustained conditions have time to show.
-        let seconds = CommandLine.arguments.firstIndex(of: "--report")
-            .flatMap { CommandLine.arguments.indices.contains($0 + 1) ? Double(CommandLine.arguments[$0 + 1]) : nil } ?? 4.5
         try? await Task.sleep(for: .seconds(seconds))
         var lines: [String] = []
         for insight in monitor.insights {
@@ -247,11 +287,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     /// `StatBar --snapshot <file.png>` renders the popover after a few samples and exits,
     /// for checking the layout without clicking the menu bar.
-    private func snapshotAndExit(to path: String) async {
+    private func snapshotAndExit(to path: String, light: Bool) async {
         monitor.start()
         monitor.setPopoverVisible(true)
         try? await Task.sleep(for: .seconds(40))
-        let scheme: ColorScheme = CommandLine.arguments.contains("--snapshot-light") ? .light : .dark
+        let scheme: ColorScheme = light ? .light : .dark
         // ImageRenderer can't draw scroll views or AppKit controls, so render the cards alone.
         let view = StatBarView(monitor: monitor, launchAtLogin: launchAtLogin, isSnapshot: true).cards
             .frame(width: 360)
@@ -259,10 +299,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             .environment(\.colorScheme, scheme)
         let renderer = ImageRenderer(content: view)
         renderer.scale = 2
-        if let image = renderer.cgImage {
+        do {
+            guard let image = renderer.cgImage else {
+                throw AppLaunchMode.LaunchError("Could not render the snapshot.")
+            }
             let rep = NSBitmapImageRep(cgImage: image)
-            try? rep.representation(using: .png, properties: [:])?.write(to: URL(filePath: path))
+            guard let data = rep.representation(using: .png, properties: [:]) else {
+                throw AppLaunchMode.LaunchError("Could not encode the snapshot as PNG.")
+            }
+            try data.write(to: URL(filePath: path))
             print("Wrote \(path)")
+        } catch {
+            FileHandle.standardError.write(Data("StatBar: \(error)\n".utf8))
+            exit(EXIT_FAILURE)
         }
         exit(0)
     }

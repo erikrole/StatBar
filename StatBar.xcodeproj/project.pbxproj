@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		02D7AA1E5958080EAB4E1963 /* Readers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91754DC25FBB12DD5AE38CA8 /* Readers.swift */; };
+		04B95603BCD1730B8CDEBC4D /* AppLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ADFFB7F990952C3AF4E864E /* AppLaunch.swift */; };
 		2B5A1CE0ED8EDA1CF87968A4 /* AppUpdater in Frameworks */ = {isa = PBXBuildFile; productRef = BC2E422F09039B50705634BE /* AppUpdater */; };
 		5D3116E76D672D762C820308 /* InsightEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD164BA38F8694276F3E4E0B /* InsightEngine.swift */; };
 		74219C8F83730C8C52B0EB41 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3536D3AA5C2FD4690B3A4E4 /* LaunchAtLoginController.swift */; };
@@ -19,6 +20,7 @@
 		B61A97B98B82CA168867A8DE /* ReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7426C42209A6485335CF470A /* ReaderTests.swift */; };
 		C7FC14350B97206DA350A4C3 /* StatBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07CBB179B5C64C04F51D7B17 /* StatBarApp.swift */; };
 		C82B272F454970049AB9A959 /* AppUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCDBCAF9E511FD19823F99F9 /* AppUpdate.swift */; };
+		D06D6601EF48ED12048C3AA9 /* AppLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F5596CC500EA7DDB04029A8 /* AppLaunchTests.swift */; };
 		DFA5ACAE0D4690E010E62DB3 /* PerformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EF49E87C9779A3B008107D6 /* PerformanceTests.swift */; };
 		E9835573C6503C553FA3F334 /* StatMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 550338DD53302FA605A1AC19 /* StatMonitorTests.swift */; };
 		F43556644109C8E1A69BDBA4 /* PowerReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2432D1AADD6C9B693B6EDD8D /* PowerReader.swift */; };
@@ -38,6 +40,8 @@
 /* Begin PBXFileReference section */
 		07996F611F57265DA8D21E73 /* InsightEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightEngineTests.swift; sourceTree = "<group>"; };
 		07CBB179B5C64C04F51D7B17 /* StatBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatBarApp.swift; sourceTree = "<group>"; };
+		0ADFFB7F990952C3AF4E864E /* AppLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLaunch.swift; sourceTree = "<group>"; };
+		1F5596CC500EA7DDB04029A8 /* AppLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLaunchTests.swift; sourceTree = "<group>"; };
 		2432D1AADD6C9B693B6EDD8D /* PowerReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerReader.swift; sourceTree = "<group>"; };
 		4EF49E87C9779A3B008107D6 /* PerformanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceTests.swift; sourceTree = "<group>"; };
 		550338DD53302FA605A1AC19 /* StatMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatMonitorTests.swift; sourceTree = "<group>"; };
@@ -80,6 +84,7 @@
 		2C2E54FFF23F21B078AF102F /* StatBar */ = {
 			isa = PBXGroup;
 			children = (
+				0ADFFB7F990952C3AF4E864E /* AppLaunch.swift */,
 				DCDBCAF9E511FD19823F99F9 /* AppUpdate.swift */,
 				5BF2DFC2BF378AA200D8F527 /* Format.swift */,
 				BCA8C85862AA7E6D9249279F /* Info.plist */,
@@ -107,6 +112,7 @@
 		8F4D11B85B46084E3CBCEFB6 /* StatBarTests */ = {
 			isa = PBXGroup;
 			children = (
+				1F5596CC500EA7DDB04029A8 /* AppLaunchTests.swift */,
 				07996F611F57265DA8D21E73 /* InsightEngineTests.swift */,
 				96215D9219298D1372039F74 /* MetricFormatTests.swift */,
 				4EF49E87C9779A3B008107D6 /* PerformanceTests.swift */,
@@ -202,6 +208,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				04B95603BCD1730B8CDEBC4D /* AppLaunch.swift in Sources */,
 				C82B272F454970049AB9A959 /* AppUpdate.swift in Sources */,
 				A60F9DBBBDA1AE0A3B954C17 /* Format.swift in Sources */,
 				5D3116E76D672D762C820308 /* InsightEngine.swift in Sources */,
@@ -219,6 +226,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D06D6601EF48ED12048C3AA9 /* AppLaunchTests.swift in Sources */,
 				A9FF2EA63B203EFBEF47A391 /* InsightEngineTests.swift in Sources */,
 				FCF95E1B6814C062653E6FFC /* MetricFormatTests.swift in Sources */,
 				DFA5ACAE0D4690E010E62DB3 /* PerformanceTests.swift in Sources */,
@@ -246,7 +254,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = T26T3G8C7Q;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -255,7 +263,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.3;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.erole.StatBar;
 				PRODUCT_NAME = StatBar;
 				SDKROOT = macosx;
@@ -367,7 +375,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = T26T3G8C7Q;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -376,7 +384,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.3;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.erole.StatBar;
 				PRODUCT_NAME = StatBar;
 				SDKROOT = macosx;

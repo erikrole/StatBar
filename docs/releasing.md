@@ -36,14 +36,38 @@ NOTARY_PRIVATE_KEY_PATH="/path/to/AuthKey_KEYID.p8" \
 ./scripts/release-macos.sh
 ```
 
+An existing ASC CLI authentication profile is also supported, without copying its
+credentials into a notarytool profile:
+
+```sh
+TEAM_ID="YOUR_TEAM_ID" \
+ASC_PROFILE="YOUR_EXISTING_ASC_PROFILE" \
+./scripts/release-macos.sh
+```
+
+Commit the reviewed source first. The script regenerates the Xcode project and
+refuses a dirty checkout. The default output is a new
+`.release/<version>-<source-sha>/` directory; an explicit `OUTPUT_DIR` must be empty.
+Existing release evidence is never overwritten. If retrying a failed preparation,
+choose a fresh output directory and retain the failed run's logs.
+The archive builds from `git archive` of the captured commit, so subsequent
+working-tree edits cannot alter the packaged source.
+
 The script generates a Release archive, exports Developer ID-signed
 `StatBar.app`, submits a ZIP to Apple's notary service, staples the ticket,
-and writes:
+verifies a fresh extraction with codesign, stapler and Gatekeeper, and writes:
 
 ```text
-.release/StatBar-0.1.0-arm64.zip
-.release/StatBar-0.1.0-arm64.zip.sha256
+.release/1.0.0-<source-sha>/StatBar-1.0.0-arm64.zip
+.release/1.0.0-<source-sha>/StatBar-1.0.0-arm64.zip.sha256
+.release/1.0.0-<source-sha>/release-manifest.json
 ```
+
+The manifest records the exact committed source, version/build, architecture,
+minimum macOS, signing team, accepted notarization submission and final ZIP digest.
+The raw Apple response is retained as `notarization.json`. Packaging does not
+publish a release or replace the installed app. The current preparation status is
+in [1.0 readiness](1.0-readiness.md).
 
 ## GitHub release
 

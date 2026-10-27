@@ -11,9 +11,9 @@ final class LaunchAtLoginController {
     private let service = SMAppService.mainApp
     private let defaults = UserDefaults.standard
 
-    init() {
+    init(managesService: Bool = true) {
         status = service.status
-        guard !Self.isRunningTests else { return }
+        guard managesService, !Self.isRunningTests else { return }
         let storedPreference = defaults.object(forKey: LaunchAtLoginPolicy.preferenceKey) as? Bool
         guard let desiredEnabled = LaunchAtLoginPolicy.desiredEnabled(
             storedPreference: storedPreference,

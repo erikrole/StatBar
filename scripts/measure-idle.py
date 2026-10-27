@@ -4,8 +4,12 @@ import argparse
 import json
 import os
 from pathlib import Path
+import plistlib
+import shutil
 import subprocess
+import tempfile
 import time
+import uuid
 
 
 def reading(pid):
@@ -23,18 +27,9 @@ def reading(pid):
     return seconds, int(rss_kib) / 1024
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("executable", type=Path, help="StatBar.app/Contents/MacOS/StatBar")
-    parser.add_argument("--seconds", type=float, default=35)
-    args = parser.parse_args()
-    if not args.executable.is_file() or not 5 <= args.seconds <= 300:
-        parser.error("provide an existing executable and a duration from 5 to 300 seconds")
-
-    # Argument-domain defaults suppress notifications only in this profiling process.
-    # Never change the user's saved preference or stop their existing app.
+def measure(executable, seconds):
     process = subprocess.Popen(
-        [str(args.executable.resolve()), "-notificationsEnabled", "NO"],
+        [str(executable), "--measure-idle", "-notificationsEnabled", "NO"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     try:
@@ -44,8 +39,8 @@ def main():
         initial_cpu, initial_rss = reading(process.pid)
         resident = [initial_rss]
         start = time.monotonic()
-        while time.monotonic() - start < args.seconds:
-            time.sleep(max(0, min(1, args.seconds - (time.monotonic() - start))))
+        while time.monotonic() - start < seconds:
+            time.sleep(max(0, min(1, seconds - (time.monotonic() - start))))
             if process.poll() is not None:
                 raise RuntimeError(f"App exited during measurement: {process.returncode}")
             final_cpu, rss = reading(process.pid)
@@ -68,6 +63,35 @@ def main():
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("executable", type=Path, help="StatBar.app/Contents/MacOS/StatBar")
+    parser.add_argument("--seconds", type=float, default=35)
+    args = parser.parse_args()
+    executable = args.executable.resolve()
+    bundle = executable.parent.parent.parent
+    if (not executable.is_file() or not (bundle / "Contents/Info.plist").is_file()
+            or not 5 <= args.seconds <= 300):
+        parser.error("provide an existing app executable and a duration from 5 to 300 seconds")
+
+    # A unique bundle identity keeps profiling out of the real app's instance
+    # election and preferences. Only the temporary copy is modified and ad-hoc signed.
+    with tempfile.TemporaryDirectory(prefix="StatBar-measure-") as directory:
+        copy = Path(directory) / "StatBar.app"
+        shutil.copytree(bundle, copy, symlinks=True)
+        info_path = copy / "Contents/Info.plist"
+        with info_path.open("rb") as file:
+            info = plistlib.load(file)
+        info["CFBundleIdentifier"] = f"com.erole.StatBar.measurement.{uuid.uuid4().hex}"
+        with info_path.open("wb") as file:
+            plistlib.dump(info, file)
+        subprocess.run(
+            ["/usr/bin/codesign", "--force", "--sign", "-", str(copy)],
+            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+        )
+        measure(copy / executable.relative_to(bundle), args.seconds)
 
 
 if __name__ == "__main__":

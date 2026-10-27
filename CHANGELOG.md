@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — 1.0.0
+
+- Keep one menu-bar instance when copies launch together, with an asynchronous
+  grace period for an older copy to finish quitting.
+- Isolate report, snapshot and idle-measurement runs from automatic updates,
+  notification prompts and Login Items setup. Report invalid diagnostic arguments
+  and failed snapshot writes as errors.
+- Show the installed version and build in Settings.
+
 ## 0.1.3 - 2026-10-27
 
 - Only one StatBar icon: a second copy waits briefly for the first to exit, then quits and brings the first forward.
@@ -12,13 +21,6 @@
 
 - Add signed ZIP self-updates through AppUpdater, preserving save and busy safeguards.
 - Publish a notarized Apple Silicon release requiring macOS 27 or later.
-
-## Unreleased
-
-- Restore blue CPU charts, purple GPU charts, teal disk bars, blue/orange network graphs,
-  and green healthy status indicators while retaining the compact layout.
-- Remove redundant menu-bar padding while keeping the CPU indicator's width stable
-  across percentages and warning states.
 
 ## 0.1.0 — 2026-10-12
 

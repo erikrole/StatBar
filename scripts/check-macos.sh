@@ -7,11 +7,15 @@ cd "$ROOT_DIR"
 ARGS=(CODE_SIGNING_ALLOWED=NO)
 case "$MODE" in
   test) CONFIGURATION=Debug ;;
+  release-test)
+    CONFIGURATION=Release
+    ARGS+=(ENABLE_TESTABILITY=YES)
+    ;;
   benchmark)
     CONFIGURATION=Release
     ARGS+=(-only-testing:StatBarTests/PerformanceTests ENABLE_TESTABILITY=YES)
     ;;
-  *) echo "usage: $0 [test|benchmark]" >&2; exit 2 ;;
+  *) echo "usage: $0 [test|release-test|benchmark]" >&2; exit 2 ;;
 esac
 RESULT_DIR="$ROOT_DIR/build/checks/$MODE-$(date -u +%Y%m%dT%H%M%SZ)-$$"
 mkdir -p "$RESULT_DIR"

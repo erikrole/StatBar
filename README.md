@@ -72,12 +72,16 @@ heat and the app list remain available by expanding or scrolling.
 
 ## Install
 
-Download [StatBar 0.1.0](https://github.com/erikrole/StatBar/releases/tag/v0.1.0),
+Download [the latest published StatBar release](https://github.com/erikrole/StatBar/releases/latest),
 expand the ZIP, move `StatBar.app` into Applications, and open it. The app appears
 in the menu bar. Requires Apple Silicon and macOS 27 or later.
 
 The release is Developer ID-signed and notarized, with its ticket stapled. A
 SHA-256 checksum file is attached to the release alongside the ZIP.
+
+The source is being prepared as **1.0.0 (build 5)**. See the
+[1.0 readiness record](docs/1.0-readiness.md) for validation and remaining acceptance
+checks. The latest published release is [0.1.3](https://github.com/erikrole/StatBar/releases/tag/v0.1.3).
 
 ## Build and run
 
@@ -92,7 +96,7 @@ The Codex Run action uses the same script. It builds an unsigned local app under
 `STATBAR_CONFIGURATION=Release` for an optimized build. Optional modes are
 `--debug`, `--logs` and `--telemetry`.
 
-`StatBar --report [seconds]` samples (4.5 s by default) and prints every reading and
+`StatBar --report [seconds]` samples (4.5 s by default; up to 86400 s) and prints every reading and
 active insight;
 `StatBar --snapshot file.png` renders the popover's cards to an image after 40 seconds.
 Add `--snapshot-light` for light appearance. Launch-only defaults
@@ -100,10 +104,16 @@ such as `-showCoreDetails YES`, `-showMemoryDetails YES`, `-showPowerDetails YES
 and `-showNetworkDetails YES` expand details for diagnostics without changing
 the saved disclosure preferences.
 
+Diagnostic commands suppress notifications and skip Login Items setup and update
+checks. Invalid report durations and snapshot paths fail with a nonzero exit code.
+Normal launches keep one menu-bar instance; a second copy allows the older one a
+short grace period to exit without blocking the main thread.
+
 ## Test
 
 ```sh
 ./scripts/check-macos.sh test
+./scripts/check-macos.sh release-test
 ```
 
 The suite includes `MetricFormatTests`, which covers parsing and formatting for CPU,
@@ -116,7 +126,7 @@ thresholds):
 ./scripts/check-macos.sh benchmark
 ```
 
-Both commands regenerate the Xcode project and save the full log and `.xcresult`
+All check modes regenerate the Xcode project and save the full log and `.xcresult`
 under the ignored `build/checks` directory. Benchmarks enable testability for the
 Release test host. To measure a built app's CPU and sampled resident memory with
 the popover closed:
@@ -125,8 +135,8 @@ the popover closed:
 python3 scripts/measure-idle.py build/run/Build/Products/Release/StatBar.app/Contents/MacOS/StatBar
 ```
 
-The profiler runs a separate copy, suppresses its notifications using launch-only
-defaults, and terminates only that copy. See [performance validation](docs/performance.md)
+The profiler runs a temporary, ad-hoc signed app with a unique bundle identity,
+suppresses notifications, and terminates only that copy. See [performance validation](docs/performance.md)
 for measured results and their limits. Logs and snapshots can contain local system
 details; keep them in ignored build directories.
 
@@ -138,6 +148,11 @@ StatBar is released under the MIT License.
 
 AppUpdater checks [erikrole/StatBar](https://github.com/erikrole/StatBar/releases) for signed ZIP releases. Normal Release launches check automatically; tests and helper/command launches skip automatic checks. Use **Check for Updates…** in the popover Settings menu.
 
-`project.yml` pins the public [AppUpdater](https://github.com/erikrole/AppUpdater) package to `5b5a9411078b79ad92e36bf9d965ecd94b66b420`; rerun XcodeGen after changing the pin. Keep package resolution checked in. App and package targets require **macOS 27**. The host retains its save and busy checks during updater relaunch; no forced-exit fallback is configured.
+Stable updates install automatically at launch by default. Turn this off with
+**Settings → Update automatically**. Failed automatic installation stops retrying
+after two attempts. The Settings menu also shows the installed version and build.
 
-Published on October 23, 2026 as [StatBar 0.1.1](https://github.com/erikrole/StatBar/releases/tag/v0.1.1), build 2, from source `e35451c0088208307a1a92ce9f2a8bffd00debf5`. The Apple Silicon ZIP requires macOS 27 or later and is Developer ID signed, notarized, and stapled. A SHA-256 checksum and provenance manifest are attached to the release.
+`project.yml` pins the public [AppUpdater](https://github.com/erikrole/AppUpdater) package to `9ada219929d278da23a003382ed599d4590f78ec`; rerun XcodeGen after changing the pin. Keep package resolution checked in. App and package targets require **macOS 27**. The host retains its save and busy checks during updater relaunch; no forced-exit fallback is configured.
+
+See [releasing](docs/releasing.md) for the signed ZIP workflow and recorded release
+evidence. GitHub publication is a separate step from preparing the local artifact.

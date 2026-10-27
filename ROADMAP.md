@@ -1,17 +1,21 @@
 # StatBar roadmap
 
-Current focus: hardware and interaction validation after the published signed,
-notarized 0.1.0 release. The compact overview, remembered detail disclosures and
-simplified footer are implemented.
+Current focus: prepare **1.0.0 (build 5)** from the published 0.1.3 feature set.
+The monitoring overview, alerts, remembered disclosures, automatic signed ZIP
+updates and single-instance behavior are implemented.
 
-- Keep deterministic coverage for pause/resume, delayed detail results, network
-  disconnects, route changes and bounded histories.
-- Retain repeatable Debug tests, Release reader benchmarks and isolated process
-  CPU/resident-memory measurements.
-- Next hardware checks: actual display sleep/wake, Ethernet/Wi-Fi transitions with
-  GlobalProtect, removable-drive stalls, and longer idle/battery sessions.
-- Developer ID signing, notarization, stapling and Gatekeeper verification passed
-  for 0.1.0. The ZIP and checksum are published on GitHub; see
-  [releasing](docs/releasing.md). Homebrew remains deferred.
+- Done: harden concurrent launches and keep diagnostic runs independent of the installed
+  app, saved preferences, Login Items and automatic updates.
+- Done: validate 57 tests in both Debug and Release, run live launch/reader checks,
+  inspect light/dark card renders and measure the isolated Release process. Native
+  menu/keyboard interaction remains unverified because UI automation timed out.
+- Prepare a signed, notarized ZIP with fresh-extraction Gatekeeper verification,
+  checksum, provenance manifest and draft release notes.
+- Complete real display sleep/wake, Ethernet/Wi-Fi transitions with GlobalProtect,
+  removable-drive stalls, longer idle/battery sessions and installed updater/relaunch
+  acceptance before calling those scenarios verified.
+- Publish 1.0 separately after reviewing the prepared artifact and acceptance
+  record. Keep Homebrew deferred.
 
-- October 23: [StatBar 0.1.1](https://github.com/erikrole/StatBar/releases/tag/v0.1.1) is published with AppUpdater ZIP support. macOS 27, signing, notarization, fresh-extraction Gatekeeper checks, and the public update feed are verified. Installed update/relaunch acceptance remains a separate check.
+Current evidence and remaining boundaries: [1.0 readiness](docs/1.0-readiness.md).
+Release workflow: [releasing](docs/releasing.md).
