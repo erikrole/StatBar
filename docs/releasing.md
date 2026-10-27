@@ -96,7 +96,7 @@ and its checksum, and tag the exact source commit recorded in the release manife
 Do not commit certificates, private keys, provisioning assets, or notarization
 credentials.
 
-## Prepared candidate: 1.0.0 (build 5)
+## Verified release: 1.0.0 (build 5)
 
 Prepared October 27, 2026 from committed source
 `987aba0f0821f4e11adea5e8bbe30503eac42ad1`. The user explicitly approved the Apple
@@ -115,10 +115,20 @@ SHA-256: `4f89436e27ea21d2079a53eb52c18c81ec857dcd026ac4fbb590d88c5d6a844e`.
 The earlier `.release/1.0.0-987aba0/` directory contains the signed-only staging
 artifact; use the **notarized** directory for any publication.
 
-The candidate is not published or tagged as 1.0 and has not replaced the installed
-app. When publishing, tag the exact source commit above, rather than a later
-documentation commit. See [1.0 readiness](1.0-readiness.md) for tests, live checks
-and remaining hardware acceptance boundaries.
+Published October 27, 2026 as [StatBar 1.0](https://github.com/erikrole/StatBar/releases/tag/v1.0.0).
+Tag `v1.0.0` points to the exact source commit above. GitHub's latest stable feed
+returns 1.0.0, and the downloaded ZIP, checksum and manifest match the local
+artifacts byte for byte. The app freshly extracted from that download passed
+signature, ticket and Gatekeeper verification.
+
+That downloaded app was installed at `/Applications/StatBar.app`, replacing
+0.1.2/build 3 after a graceful quit. The previous app is retained under
+`~/Code Support/StatBar/Backups/`. Installed signature, ticket, Gatekeeper and
+version/build checks passed. The installed five-second diagnostic returned all
+nine metric groups and exactly one normal installed process remained running.
+This is manual installation acceptance; automatic updater swap/recovery remains
+unverified. See [1.0 readiness](1.0-readiness.md) for tests, live checks and
+remaining hardware/interaction boundaries.
 
 ## Verified release: 0.1.0 (build 1)
 

@@ -1,6 +1,6 @@
 # StatBar 1.0
 
-Draft release notes for 1.0.0 (build 5). Not yet published.
+Version 1.0.0 (build 5), for Apple Silicon and macOS 27 or later.
 
 StatBar brings CPU, GPU, memory, power, network, disks, heat and top apps into one
 compact menu-bar utility for Apple Silicon Macs.
@@ -19,7 +19,18 @@ compact menu-bar utility for Apple Silicon Macs.
 Requires Apple Silicon and macOS 27 or later. Download the ZIP, expand it, move
 `StatBar.app` to Applications, and open it.
 
-Before publication, attach the prepared Developer ID-signed, notarized and stapled
-ZIP, its SHA-256 file, and `release-manifest.json`. Use the exact source commit in
-that manifest for the release tag. See [1.0 readiness](1.0-readiness.md) for checks
-and remaining hardware acceptance boundaries.
+The download is Developer ID-signed, notarized by Apple and stapled. Signature,
+ticket, checksum and Gatekeeper checks passed after extracting the final ZIP.
+The source passed 57 tests in both Debug and Release, plus live launch and reader
+checks. See the [readiness record](https://github.com/erikrole/StatBar/blob/main/docs/1.0-readiness.md)
+for remaining hardware and interaction acceptance boundaries.
+
+Download the ZIP and its `.sha256` file to the same folder, then verify with:
+
+```sh
+shasum -a 256 -c StatBar-1.0.0-arm64.zip.sha256
+```
+
+Built from [987aba0](https://github.com/erikrole/StatBar/commit/987aba0f0821f4e11adea5e8bbe30503eac42ad1).
+The attached `release-manifest.json` records the source, version, signing team,
+notarization submission and final ZIP digest.

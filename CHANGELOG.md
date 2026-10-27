@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased — 1.0.0
+## 1.0.0 — 2026-10-27
+
+First stable release, signed and notarized for Apple Silicon on macOS 27 or later.
 
 - Keep one menu-bar instance when copies launch together, with an asynchronous
   grace period for an older copy to finish quitting.

@@ -79,10 +79,10 @@ in the menu bar. Requires Apple Silicon and macOS 27 or later.
 The release is Developer ID-signed and notarized, with its ticket stapled. A
 SHA-256 checksum file is attached to the release alongside the ZIP.
 
-The **1.0.0 (build 5)** candidate is prepared locally, signed, notarized and
-stapled. It has not been published. See the
+**[StatBar 1.0.0 (build 5)](https://github.com/erikrole/StatBar/releases/tag/v1.0.0)**
+was published October 27, 2026, signed, notarized and stapled. See the
 [1.0 readiness record](docs/1.0-readiness.md) for validation and remaining acceptance
-checks. The latest published release is [0.1.3](https://github.com/erikrole/StatBar/releases/tag/v0.1.3).
+checks. The release tag points to source `987aba0f0821f4e11adea5e8bbe30503eac42ad1`.
 
 ## Build and run
 
