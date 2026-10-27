@@ -39,11 +39,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             Task { await printReportAndExit() }
             return
         }
+        guard ensureSoleInstance() else { return }
         configureStatusItem()
         monitor.onSample = { [weak self] in self?.updateStatusItemIfNeeded() }
         observeScreenSleep()
         monitor.start()
         AppUpdate.checkOnLaunch()
+    }
+
+    /// One menu bar icon only. Another copy (an installed app next to a build product, or the old
+    /// copy still quitting during an update relaunch) gets a short grace period to exit; if it
+    /// stays, this copy brings it forward and quits instead of adding a second icon.
+    private func ensureSoleInstance() -> Bool {
+        guard let id = Bundle.main.bundleIdentifier else { return true }
+        let me = ProcessInfo.processInfo.processIdentifier
+        func others() -> [NSRunningApplication] {
+            NSRunningApplication.runningApplications(withBundleIdentifier: id).filter { $0.processIdentifier != me && !$0.isTerminated }
+        }
+        let deadline = Date().addingTimeInterval(5)
+        while !others().isEmpty, Date() < deadline { Thread.sleep(forTimeInterval: 0.2) }
+        guard let existing = others().first else { return true }
+        existing.activate()
+        NSApp.terminate(nil)
+        return false
     }
 
     private func configureStatusItem() {

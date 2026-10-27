@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3 - 2026-10-27
+
+- Only one StatBar icon: a second copy waits briefly for the first to exit, then quits and brings the first forward.
+
 ## 0.1.2 - 2026-10-26
 
 - Install stable updates automatically at launch (Settings > Update automatically, on by default). A failed update stops retrying after two tries.
