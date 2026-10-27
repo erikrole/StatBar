@@ -1,6 +1,7 @@
 # StatBar roadmap
 
-Current focus: prepare **1.0.0 (build 5)** from the published 0.1.3 feature set.
+Current focus: finish hardware acceptance and publication of the prepared
+**1.0.0 (build 5)** candidate, based on the published 0.1.3 feature set.
 The monitoring overview, alerts, remembered disclosures, automatic signed ZIP
 updates and single-instance behavior are implemented.
 
@@ -9,9 +10,9 @@ updates and single-instance behavior are implemented.
 - Done: validate 57 tests in both Debug and Release, run live launch/reader checks,
   inspect light/dark card renders and measure the isolated Release process. Native
   menu/keyboard interaction remains unverified because UI automation timed out.
-- Prepare a signed local ZIP, checksum, provenance manifest and draft release
-  notes. Apple upload/notarization, stapling and fresh-extraction Gatekeeper
-  acceptance require separate upload approval.
+- Done: prepare the signed ZIP, checksum, provenance manifest and draft release
+  notes. Apple notarization was explicitly approved and accepted; stapling and
+  fresh-extraction Gatekeeper checks passed. Packaged source: `987aba0`.
 - Complete real display sleep/wake, Ethernet/Wi-Fi transitions with GlobalProtect,
   removable-drive stalls, longer idle/battery sessions and installed updater/relaunch
   acceptance before calling those scenarios verified.

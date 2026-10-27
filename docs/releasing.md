@@ -96,6 +96,30 @@ and its checksum, and tag the exact source commit recorded in the release manife
 Do not commit certificates, private keys, provisioning assets, or notarization
 credentials.
 
+## Prepared candidate: 1.0.0 (build 5)
+
+Prepared October 27, 2026 from committed source
+`987aba0f0821f4e11adea5e8bbe30503eac42ad1`. The user explicitly approved the Apple
+notarization upload. Apple accepted submission
+`da21602f-5f50-4e51-bad1-240c87a26cbd`; signature, stapled ticket and Gatekeeper
+verification passed after fresh ZIP extraction. The app is arm64, requires macOS
+27.0 in Info.plist and Mach-O, and reports version 1.0.0/build 5.
+
+Final local artifacts are in the ignored `.release/1.0.0-987aba0-notarized/`:
+
+- `StatBar-1.0.0-arm64.zip`
+- `StatBar-1.0.0-arm64.zip.sha256`
+- `release-manifest.json`
+
+SHA-256: `4f89436e27ea21d2079a53eb52c18c81ec857dcd026ac4fbb590d88c5d6a844e`.
+The earlier `.release/1.0.0-987aba0/` directory contains the signed-only staging
+artifact; use the **notarized** directory for any publication.
+
+The candidate is not published or tagged as 1.0 and has not replaced the installed
+app. When publishing, tag the exact source commit above, rather than a later
+documentation commit. See [1.0 readiness](1.0-readiness.md) for tests, live checks
+and remaining hardware acceptance boundaries.
+
 ## Verified release: 0.1.0 (build 1)
 
 Built October 12, 2026 from source commit
