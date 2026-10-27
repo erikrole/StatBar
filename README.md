@@ -86,6 +86,10 @@ checks. The release tag points to source `987aba0f0821f4e11adea5e8bbe30503eac42a
 
 ## Build and run
 
+The layered app icon lives in [`docs/brand/StatBar.icon`](docs/brand/StatBar.icon).
+Edit it in Icon Composer; Xcode compiles the default, dark, and monochrome
+appearances plus the fallback icon. See [icon editing notes](docs/brand/README.md).
+
 Requirements: macOS 27 or later, Xcode, and XcodeGen.
 
 ```sh

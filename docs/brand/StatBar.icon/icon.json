@@ -1,0 +1,65 @@
+{
+  "features" : [
+    "refractivity"
+  ],
+  "fill-specializations" : [
+    {
+      "value" : {
+        "automatic-gradient" : "srgb:0.15686,0.34510,0.86667,1.00000"
+      }
+    },
+    {
+      "appearance" : "dark",
+      "value" : {
+        "automatic-gradient" : "srgb:0.06275,0.09804,0.23529,1.00000"
+      }
+    }
+  ],
+  "groups" : [
+    {
+      "blur-material" : null,
+      "layers" : [
+        {
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "Network.svg",
+          "name" : "Network",
+          "opacity" : 1
+        },
+        {
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "GPU.svg",
+          "name" : "GPU",
+          "opacity" : 1
+        },
+        {
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "CPU.svg",
+          "name" : "CPU",
+          "opacity" : 1
+        }
+      ],
+      "lighting" : "individual",
+      "name" : "StatBar",
+      "refractivity" : {
+        "depth" : 0.08,
+        "enabled" : true,
+        "strength" : 0.35
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.18
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : "shared"
+  }
+}

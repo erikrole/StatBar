@@ -14,6 +14,7 @@
 		74219C8F83730C8C52B0EB41 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3536D3AA5C2FD4690B3A4E4 /* LaunchAtLoginController.swift */; };
 		915D476571055427782D1940 /* NetworkReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77CC8A2F74C8D968564CD4BB /* NetworkReader.swift */; };
 		9BA3F7F8E33D543DB83D440F /* StatMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9EE0ED2C79A45A848349176 /* StatMonitor.swift */; };
+		A5A9F0D13EB21E863F860A03 /* StatBar.icon in Resources */ = {isa = PBXBuildFile; fileRef = D56DD7296A879A20894900B9 /* StatBar.icon */; };
 		A5DF8FC531A8598341660262 /* StatBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65EA4229047A48A266E83A38 /* StatBarView.swift */; };
 		A60F9DBBBDA1AE0A3B954C17 /* Format.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF2DFC2BF378AA200D8F527 /* Format.swift */; };
 		A9FF2EA63B203EFBEF47A391 /* InsightEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07996F611F57265DA8D21E73 /* InsightEngineTests.swift */; };
@@ -53,6 +54,7 @@
 		91754DC25FBB12DD5AE38CA8 /* Readers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Readers.swift; sourceTree = "<group>"; };
 		96215D9219298D1372039F74 /* MetricFormatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricFormatTests.swift; sourceTree = "<group>"; };
 		BCA8C85862AA7E6D9249279F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		D56DD7296A879A20894900B9 /* StatBar.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = StatBar.icon; sourceTree = "<group>"; };
 		DCDBCAF9E511FD19823F99F9 /* AppUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdate.swift; sourceTree = "<group>"; };
 		E9EE0ED2C79A45A848349176 /* StatMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatMonitor.swift; sourceTree = "<group>"; };
 		EEEED98D4F3CD67BBBB9F5B1 /* StatBarTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StatBarTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -103,6 +105,7 @@
 		435B2999948BE7C52494CF16 = {
 			isa = PBXGroup;
 			children = (
+				B292146F22DDE051B8B87982 /* brand */,
 				2C2E54FFF23F21B078AF102F /* StatBar */,
 				8F4D11B85B46084E3CBCEFB6 /* StatBarTests */,
 				24123809BCA1C81F8F44B66E /* Products */,
@@ -122,6 +125,15 @@
 			path = StatBarTests;
 			sourceTree = "<group>";
 		};
+		B292146F22DDE051B8B87982 /* brand */ = {
+			isa = PBXGroup;
+			children = (
+				D56DD7296A879A20894900B9 /* StatBar.icon */,
+			);
+			name = brand;
+			path = docs/brand;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -130,6 +142,7 @@
 			buildConfigurationList = 6734DE389FE59738E2ED69E3 /* Build configuration list for PBXNativeTarget "StatBar" */;
 			buildPhases = (
 				332B85A9CF95EE54E0577E6B /* Sources */,
+				4E334751E3DBE7ED9F7A0FE7 /* Resources */,
 				56C8BB07FE585DBE62A8C6A3 /* Frameworks */,
 			);
 			buildRules = (
@@ -203,6 +216,17 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		4E334751E3DBE7ED9F7A0FE7 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A5A9F0D13EB21E863F860A03 /* StatBar.icon in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		332B85A9CF95EE54E0577E6B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -249,7 +273,7 @@
 		506DC6E09A663D254C34851C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				ASSETCATALOG_COMPILER_APPICON_NAME = StatBar;
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Manual;
@@ -370,7 +394,7 @@
 		DDE77400DE6E3DEAB03A349B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				ASSETCATALOG_COMPILER_APPICON_NAME = StatBar;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = YES;
 				CODE_SIGN_STYLE = Automatic;
