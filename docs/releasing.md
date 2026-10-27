@@ -4,6 +4,10 @@ StatBar is distributed directly as a signed and notarized Apple Silicon ZIP
 attached to a GitHub Release. Homebrew is intentionally deferred until the app
 has a stable release cadence.
 
+The script defaults to preparing a signed local candidate. Uploading the app to
+Apple for notarization is a separate, explicitly authorized action; use
+`--notarize` only when that upload is authorized.
+
 ## Prerequisites
 
 - Apple Developer Program membership.
@@ -16,14 +20,26 @@ has a stable release cadence.
 If the checkout does not have a Developer ID Application identity, the release
 script stops before archiving and explains what is missing.
 
-## Local release
+## Signed local candidate
+
+```sh
+TEAM_ID="YOUR_TEAM_ID" ./scripts/release-macos.sh --stage
+```
+
+This builds, exports and signs locally, then writes a ZIP, SHA-256 file and
+`release-manifest.json`. It verifies the signature, architecture, version/build,
+minimum macOS and checksum after fresh extraction. The manifest records
+notarization as `Not submitted`, the stapled ticket as false and Gatekeeper as
+unverified. This candidate is not yet the notarized public download.
+
+## Notarized release
 
 Use a keychain profile created for `notarytool`:
 
 ```sh
 TEAM_ID="YOUR_TEAM_ID" \
 NOTARY_PROFILE="StatBar-notary" \
-./scripts/release-macos.sh
+./scripts/release-macos.sh --notarize
 ```
 
 Or provide an App Store Connect API key directly:
@@ -33,7 +49,7 @@ TEAM_ID="YOUR_TEAM_ID" \
 NOTARY_KEY_ID="YOUR_KEY_ID" \
 NOTARY_ISSUER_ID="YOUR_ISSUER_ID" \
 NOTARY_PRIVATE_KEY_PATH="/path/to/AuthKey_KEYID.p8" \
-./scripts/release-macos.sh
+./scripts/release-macos.sh --notarize
 ```
 
 An existing ASC CLI authentication profile is also supported, without copying its
@@ -42,12 +58,13 @@ credentials into a notarytool profile:
 ```sh
 TEAM_ID="YOUR_TEAM_ID" \
 ASC_PROFILE="YOUR_EXISTING_ASC_PROFILE" \
-./scripts/release-macos.sh
+./scripts/release-macos.sh --notarize
 ```
 
 Commit the reviewed source first. The script regenerates the Xcode project and
 refuses a dirty checkout. The default output is a new
-`.release/<version>-<source-sha>/` directory; an explicit `OUTPUT_DIR` must be empty.
+`.release/<version>-<source-sha>/` directory (`-notarized` is appended in notarized
+mode); an explicit `OUTPUT_DIR` must be empty.
 Existing release evidence is never overwritten. If retrying a failed preparation,
 choose a fresh output directory and retain the failed run's logs.
 The archive builds from `git archive` of the captured commit, so subsequent
@@ -58,9 +75,9 @@ The script generates a Release archive, exports Developer ID-signed
 verifies a fresh extraction with codesign, stapler and Gatekeeper, and writes:
 
 ```text
-.release/1.0.0-<source-sha>/StatBar-1.0.0-arm64.zip
-.release/1.0.0-<source-sha>/StatBar-1.0.0-arm64.zip.sha256
-.release/1.0.0-<source-sha>/release-manifest.json
+.release/1.0.0-<source-sha>-notarized/StatBar-1.0.0-arm64.zip
+.release/1.0.0-<source-sha>-notarized/StatBar-1.0.0-arm64.zip.sha256
+.release/1.0.0-<source-sha>-notarized/release-manifest.json
 ```
 
 The manifest records the exact committed source, version/build, architecture,
