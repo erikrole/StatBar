@@ -362,8 +362,8 @@ struct StatBarView: View {
                 Toggle("Update automatically", isOn: $autoUpdate)
                 Button("Check for Updates…") { AppUpdate.checkNow() }
                 Divider()
-                Text("StatBar \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""))")
-                Button("Quit StatBar") { NSApp.terminate(nil) }
+                Text("Monitor \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""))")
+                Button("Quit Monitor") { NSApp.terminate(nil) }
                     .keyboardShortcut("q")
             } label: {
                 Text("Settings")
@@ -373,7 +373,7 @@ struct StatBarView: View {
             .controlSize(.small)
             .fixedSize()
             .help("Alerts, launch at login, updates, version, and quit")
-            .accessibilityLabel("StatBar settings")
+            .accessibilityLabel("Monitor settings")
         }
         .font(.caption)
         .foregroundStyle(.secondary)

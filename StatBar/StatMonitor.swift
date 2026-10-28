@@ -527,7 +527,7 @@ final class StatMonitor {
             parts.append("GPU \(value) percent")
         }
         if let memory { parts.append("memory pressure \(memory.pressure.label.lowercased())") }
-        return "StatBar: " + parts.joined(separator: ", ")
+        return "Monitor: " + parts.joined(separator: ", ")
     }
 
     var thermalLabel: String { Format.thermal(thermalState) }

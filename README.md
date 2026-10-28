@@ -1,6 +1,13 @@
-# StatBar
+# Monitor
 
-StatBar is a native macOS menu bar utility for the system stats that matter on a
+Formerly **StatBar**. Part of the **Expand · Monitor · Remote · Refresh** Mac utility family.
+See the [shared design language](docs/brand/FAMILY.md) for naming, icons and native UI conventions.
+
+The display name is **Monitor**. The `StatBar` repository, Xcode target, bundle ID,
+app filename and update assets retain their existing identities for compatibility.
+This source change has not yet been distributed as a renamed release.
+
+Monitor is a native macOS menu bar utility for the system stats that matter on a
 personal M5 Max MacBook Pro used for video and motion work. It is a lean,
 from-scratch take on the idea behind iStat Menus, and it absorbs the battery and
 network views that used to live in PowerBar and NetBar, so one menu bar item
@@ -49,7 +56,7 @@ warning and critical readings retain their yellow, orange and red cues.
 
 Detail sections start collapsed and remember their state, along with the Top apps
 sort order, when the popover reopens. The fixed footer keeps Activity Monitor one
-click away; its settings menu contains Alerts, Launch at login and Quit StatBar.
+click away; its settings menu contains Alerts, Launch at login and Quit Monitor.
 
 Everything is read through public, unprivileged interfaces (Mach host statistics,
 sysctl, the IORegistry, IOKit power assertions, SystemConfiguration, read-only SMC
@@ -72,7 +79,7 @@ heat and the app list remain available by expanding or scrolling.
 
 ## Install
 
-Download [the latest published StatBar release](https://github.com/erikrole/StatBar/releases/latest),
+Download [the latest published release (still named StatBar)](https://github.com/erikrole/StatBar/releases/latest),
 expand the ZIP, move `StatBar.app` into Applications, and open it. The app appears
 in the menu bar. Requires Apple Silicon and macOS 27 or later.
 
@@ -147,7 +154,7 @@ details; keep them in ignored build directories.
 
 ## License
 
-StatBar is released under the MIT License.
+Monitor is released under the MIT License.
 
 ## App updates
 

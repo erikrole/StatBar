@@ -40,7 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         do {
             launchMode = try AppLaunchMode(arguments: Array(CommandLine.arguments.dropFirst()))
         } catch {
-            FileHandle.standardError.write(Data("StatBar: \(error)\n".utf8))
+            FileHandle.standardError.write(Data("Monitor: \(error)\n".utf8))
             exit(EXIT_FAILURE)
         }
         let app = NSApplication.shared
@@ -310,7 +310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             try data.write(to: URL(filePath: path))
             print("Wrote \(path)")
         } catch {
-            FileHandle.standardError.write(Data("StatBar: \(error)\n".utf8))
+            FileHandle.standardError.write(Data("Monitor: \(error)\n".utf8))
             exit(EXIT_FAILURE)
         }
         exit(0)

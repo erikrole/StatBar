@@ -66,13 +66,13 @@ final class LaunchAtLoginController {
             return
         }
         if status == .requiresApproval {
-            errorMessage = "StatBar needs approval in Login Items."
+            errorMessage = "Monitor needs approval in Login Items."
             return
         }
         do {
             try service.register()
             refresh()
-            errorMessage = status == .enabled ? nil : "StatBar needs approval in Login Items."
+            errorMessage = status == .enabled ? nil : "Monitor needs approval in Login Items."
         } catch {
             refresh()
             errorMessage = error.localizedDescription

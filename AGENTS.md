@@ -1,4 +1,6 @@
-# StatBar agent notes
+# Monitor agent notes
+
+Public app name: **Monitor** (formerly StatBar). Follow [the shared family design language](docs/brand/FAMILY.md). Keep `StatBar` technical identifiers, storage, updater routing and package filenames stable; use Monitor in user-facing copy.
 
 Follow `../AGENTS.md`. Native macOS menu-bar app, xcodegen project (`project.yml`), Swift 6 language mode, deployment target macOS 27 (all projects target macOS 27; use current APIs: Observation `@Observable`, Swift concurrency).
 

@@ -1,4 +1,6 @@
-# StatBar app icon
+# Monitor app icon
+
+Follow the [shared family design language](FAMILY.md): simple dimensional objects, consistent materials and lighting, individual color fields. The existing layered artwork is the family baseline. The source filename stays stable when the display name changes.
 
 `StatBar.icon` is the editable Icon Composer source. A graphite plotting display,
 subtle grid, and three metric bars form separate SVG layers. The blue CPU,
