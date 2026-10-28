@@ -1,65 +1,342 @@
 {
-  "features" : [
+  "features": [
     "refractivity"
   ],
-  "fill-specializations" : [
+  "fill-specializations": [
     {
-      "value" : {
-        "automatic-gradient" : "srgb:0.15686,0.34510,0.86667,1.00000"
+      "value": {
+        "linear-gradient": [
+          "srgb:0.98039,0.98431,0.99216,1.00000",
+          "srgb:0.87451,0.89804,0.92941,1.00000"
+        ],
+        "orientation": {
+          "start": {
+            "x": 0.5,
+            "y": 0
+          },
+          "stop": {
+            "x": 0.5,
+            "y": 1
+          }
+        }
       }
     },
     {
-      "appearance" : "dark",
-      "value" : {
-        "automatic-gradient" : "srgb:0.06275,0.09804,0.23529,1.00000"
+      "appearance": "dark",
+      "value": {
+        "linear-gradient": [
+          "srgb:0.16863,0.18824,0.21961,1.00000",
+          "srgb:0.09020,0.10588,0.13333,1.00000"
+        ],
+        "orientation": {
+          "start": {
+            "x": 0.5,
+            "y": 0
+          },
+          "stop": {
+            "x": 0.5,
+            "y": 1
+          }
+        }
       }
     }
   ],
-  "groups" : [
+  "groups": [
     {
-      "blur-material" : null,
-      "layers" : [
+      "name": "Metrics",
+      "layers": [
         {
-          "glass" : true,
-          "hidden" : false,
-          "image-name" : "Network.svg",
-          "name" : "Network",
-          "opacity" : 1
+          "name": "Network",
+          "image-name": "Network.svg",
+          "fill-specializations": [
+            {
+              "value": {
+                "linear-gradient": [
+                  "srgb:0.44314,0.89020,0.96471,1.00000",
+                  "srgb:0.14118,0.70196,0.83922,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
+              }
+            },
+            {
+              "appearance": "dark",
+              "value": {
+                "linear-gradient": [
+                  "srgb:0.62745,0.95294,1.00000,1.00000",
+                  "srgb:0.25882,0.82353,0.91373,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
+              }
+            }
+          ],
+          "glass": true,
+          "hidden": false,
+          "opacity": 1
         },
         {
-          "glass" : true,
-          "hidden" : false,
-          "image-name" : "GPU.svg",
-          "name" : "GPU",
-          "opacity" : 1
+          "name": "GPU",
+          "image-name": "GPU.svg",
+          "fill-specializations": [
+            {
+              "value": {
+                "linear-gradient": [
+                  "srgb:0.76863,0.60392,1.00000,1.00000",
+                  "srgb:0.52941,0.33333,0.90980,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
+              }
+            },
+            {
+              "appearance": "dark",
+              "value": {
+                "linear-gradient": [
+                  "srgb:0.83529,0.70588,1.00000,1.00000",
+                  "srgb:0.67451,0.47843,1.00000,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
+              }
+            }
+          ],
+          "glass": true,
+          "hidden": false,
+          "opacity": 1
         },
         {
-          "glass" : true,
-          "hidden" : false,
-          "image-name" : "CPU.svg",
-          "name" : "CPU",
-          "opacity" : 1
+          "name": "CPU",
+          "image-name": "CPU.svg",
+          "fill-specializations": [
+            {
+              "value": {
+                "linear-gradient": [
+                  "srgb:0.34902,0.71373,1.00000,1.00000",
+                  "srgb:0.07059,0.53333,0.93333,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
+              }
+            },
+            {
+              "appearance": "dark",
+              "value": {
+                "linear-gradient": [
+                  "srgb:0.44706,0.77647,1.00000,1.00000",
+                  "srgb:0.20784,0.63137,0.98039,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
+              }
+            }
+          ],
+          "glass": true,
+          "hidden": false,
+          "opacity": 1
         }
       ],
-      "lighting" : "individual",
-      "name" : "StatBar",
-      "refractivity" : {
-        "depth" : 0.08,
-        "enabled" : true,
-        "strength" : 0.35
+      "lighting": "individual",
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.14
       },
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.18
+      "specular": true,
+      "blur-material": null,
+      "translucency": {
+        "enabled": false,
+        "value": 0
       },
-      "specular" : true,
-      "translucency" : {
-        "enabled" : false,
-        "value" : 0
+      "refractivity": {
+        "enabled": true,
+        "strength": 0.25,
+        "depth": 0.08
+      }
+    },
+    {
+      "name": "Chart Grid",
+      "layers": [
+        {
+          "name": "Grid",
+          "image-name": "Grid.svg",
+          "fill-specializations": [
+            {
+              "value": {
+                "linear-gradient": [
+                  "srgb:0.23137,0.29412,0.35686,1.00000",
+                  "srgb:0.17647,0.23529,0.29804,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
+              }
+            },
+            {
+              "appearance": "dark",
+              "value": {
+                "linear-gradient": [
+                  "srgb:0.22353,0.26275,0.30980,1.00000",
+                  "srgb:0.15294,0.19216,0.23922,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
+              }
+            }
+          ],
+          "glass": false,
+          "hidden": false,
+          "opacity": 1
+        }
+      ],
+      "lighting": "individual",
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0
+      },
+      "specular": false,
+      "blur-material": null,
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      },
+      "refractivity": {
+        "enabled": true,
+        "strength": 0.25,
+        "depth": 0
+      }
+    },
+    {
+      "name": "Monitor",
+      "layers": [
+        {
+          "name": "Display",
+          "image-name": "Display.svg",
+          "fill-specializations": [
+            {
+              "value": {
+                "linear-gradient": [
+                  "srgb:0.15686,0.20784,0.25882,1.00000",
+                  "srgb:0.06275,0.10588,0.15686,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
+              }
+            },
+            {
+              "appearance": "dark",
+              "value": {
+                "linear-gradient": [
+                  "srgb:0.14510,0.17647,0.21961,1.00000",
+                  "srgb:0.06667,0.09020,0.12157,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
+              }
+            }
+          ],
+          "glass": true,
+          "hidden": false,
+          "opacity": 1
+        }
+      ],
+      "lighting": "individual",
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.22
+      },
+      "specular": true,
+      "blur-material": null,
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      },
+      "refractivity": {
+        "enabled": true,
+        "strength": 0.25,
+        "depth": 0.1
       }
     }
   ],
-  "supported-platforms" : {
-    "squares" : "shared"
+  "supported-platforms": {
+    "squares": "shared"
   }
 }
