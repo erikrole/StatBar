@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct StatBarView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Bindable var monitor: StatMonitor
     @Bindable var launchAtLogin: LaunchAtLoginController
     @AppStorage("processSort") private var processSort: ProcessSort = .cpu
@@ -35,7 +36,13 @@ struct StatBarView: View {
     /// Every section, without the scroll view, so `--snapshot` can render it too.
     var cards: some View {
         VStack(spacing: 0) {
-            nowCard
+            FamilyHeader(title: "Monitor",
+                         subtitle: monitor.insights.isEmpty ? "All quiet" : "Needs attention",
+                         statusSymbol: monitor.insights.isEmpty ? "checkmark.circle" : "exclamationmark.circle",
+                         statusColor: monitor.attentionLevel == .critical ? .red : monitor.attentionLevel == .warning ? .orange : .secondary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+            if !monitor.insights.isEmpty || !monitor.recentEvents.isEmpty { nowCard }
             VStack(spacing: 0) {
                 computeCard
                 memoryCard
@@ -53,14 +60,8 @@ struct StatBarView: View {
     /// What needs attention right now, most serious first, plus what just happened.
     private var nowCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if monitor.insights.isEmpty {
-                Text("All quiet")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(monitor.insights) { insight in
-                    InsightRow(insight: insight)
-                }
+            ForEach(monitor.insights) { insight in
+                InsightRow(insight: insight)
             }
             if !monitor.recentEvents.isEmpty {
                 DisclosureGroup {
@@ -91,7 +92,7 @@ struct StatBarView: View {
         .padding(.vertical, monitor.insights.isEmpty && monitor.recentEvents.isEmpty ? 10 : 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(nowBackground)
-        .animation(.easeOut(duration: 0.2), value: monitor.attentionLevel)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: monitor.attentionLevel)
     }
 
     /// A wash only when something needs a look. A quiet Mac stays on the popover's own paper.
@@ -128,7 +129,7 @@ struct StatBarView: View {
                     }
                 }
             }
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
         }
     }
 
@@ -348,7 +349,7 @@ struct StatBarView: View {
             Spacer()
             Menu {
                 Toggle("Alerts", isOn: $monitor.notificationsEnabled)
-                Toggle("Launch at login", isOn: Binding(
+                Toggle("Open at login", isOn: Binding(
                     get: { launchAtLogin.isEnabled },
                     set: { launchAtLogin.setEnabled($0) }
                 ))
@@ -366,7 +367,7 @@ struct StatBarView: View {
                 Button("Quit Monitor") { NSApp.terminate(nil) }
                     .keyboardShortcut("q")
             } label: {
-                Text("Settings")
+                Label("Settings", systemImage: "gearshape")
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
@@ -378,7 +379,7 @@ struct StatBarView: View {
         .font(.caption)
         .foregroundStyle(.secondary)
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
     }
 
     private func pressureColor(_ pressure: MemorySnapshot.Pressure) -> Color {
@@ -451,7 +452,7 @@ private struct Card<Content: View>: View {
             }
             content
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

@@ -1,9 +1,11 @@
 # Monitor roadmap
 
+- October 28 interface pass: **1.0.0 (6)** is installed locally with the shared family UI. A shared identity header with explicit quiet/attention status, consistent section spacing and Settings footer, and Reduced Motion-aware attention transitions. The existing metric palette, native disclosures and compact overview remain. [Verification](docs/verification-2026-10-28-family-ui.md). No public binary release was published.
+
 - October 28: adopted **Monitor** as the display name, with the shared [Mac utility design language](docs/brand/FAMILY.md). Existing technical identities and update feeds remain compatible. The signed renamed build is now installed locally. Source validation, installation checks and distribution boundaries: [rename verification](docs/verification-2026-10-28-naming.md).
 
-Current focus: hardware and interaction acceptance after the published and
-installed **1.0.0 (build 5)** release.
+Current focus: feedback on the local **1.0.0 (build 6)** family-interface build,
+plus remaining hardware acceptance. Public release remains **1.0.0 (build 5)**.
 The monitoring overview, alerts, remembered disclosures, automatic signed ZIP
 updates and single-instance behavior are implemented.
 

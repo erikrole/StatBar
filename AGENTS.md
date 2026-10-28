@@ -2,6 +2,8 @@
 
 Public app name: **Monitor** (formerly StatBar). Follow [the shared family design language](docs/brand/FAMILY.md). Keep `StatBar` technical identifiers, storage, updater routing and package filenames stable; use Monitor in user-facing copy.
 
+Interface convention: `StatBar/FamilyHeader.swift` is mirrored across all four utility repos. Keep FamilyHeader at the top of the overview and retain the native Settings menu in the fixed footer. Diagnostic ImageRenderer output is layout evidence; inspect native controls separately.
+
 Follow `../AGENTS.md`. Native macOS menu-bar app, xcodegen project (`project.yml`), Swift 6 language mode, deployment target macOS 27 (all projects target macOS 27; use current APIs: Observation `@Observable`, Swift concurrency).
 
 - Concurrency: `StatMonitor`, the popover UI and the app delegate are `@MainActor`. Sampling is one `Task.sleep` loop (`StatMonitor.startSampling`) with a one-second tolerance while the popover is closed and a quarter-second tolerance while it is open. Reachability is a single `NWPathMonitor` cancelled on pause; screen sleep/wake are async sequences. Pause cancels sampling/reachability, invalidates detail results and cooperatively cancels detail work. Retain the one in-flight detail slot until the OS read returns; never start extra workers after a timeout. Fan/network detail reads stay independent of this slot. Wake resets counter/process baselines. The menu bar uses a fixed-width status item and applies a new title or image only when `MenuBarPresentation` changes. The app is an AppKit `@main` delegate; do not add a SwiftUI `App` scene.
