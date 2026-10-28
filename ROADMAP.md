@@ -1,6 +1,6 @@
 # Monitor roadmap
 
-- October 28: adopted **Monitor** as the display name, with the shared [Mac utility design language](docs/brand/FAMILY.md). Existing technical identities and update feeds remain compatible. Source validation and distribution boundaries: [rename verification](docs/verification-2026-10-28-naming.md).
+- October 28: adopted **Monitor** as the display name, with the shared [Mac utility design language](docs/brand/FAMILY.md). Existing technical identities and update feeds remain compatible. The signed renamed build is now installed locally. Source validation, installation checks and distribution boundaries: [rename verification](docs/verification-2026-10-28-naming.md).
 
 Current focus: hardware and interaction acceptance after the published and
 installed **1.0.0 (build 5)** release.
