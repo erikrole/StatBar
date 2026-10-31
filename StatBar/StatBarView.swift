@@ -383,6 +383,7 @@ struct StatBarView: View {
             Spacer()
             Menu {
                 Toggle("Alerts", isOn: $monitor.notificationsEnabled)
+                Toggle("CPU Graph in Menu Bar", isOn: $monitor.menuBarGraph)
                 Menu("Alert When") {
                     Picker("An app uses", selection: $monitor.alertPreferences.appCores) {
                         Text("Off").tag(0.0)

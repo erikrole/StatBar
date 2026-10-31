@@ -563,7 +563,15 @@ final class StatMonitor {
     /// What the status item actually draws. Equal values must not touch the button:
     /// assigning an image or title marks the menu bar dirty in WindowServer.
     var menuBarPresentation: MenuBarPresentation {
-        MenuBarPresentation.make(cpu: cpu, attention: attentionLevel)
+        MenuBarPresentation.make(cpu: cpu, attention: attentionLevel, graph: menuBarGraph ? cpuHistory : nil)
+    }
+
+    /// Draw a small CPU graph in the menu bar instead of the percentage.
+    var menuBarGraph: Bool = UserDefaults.standard.bool(forKey: "menuBarGraph") {
+        didSet {
+            UserDefaults.standard.set(menuBarGraph, forKey: "menuBarGraph")
+            onSample?()
+        }
     }
 
     var accessibilitySummary: String {
@@ -592,13 +600,21 @@ enum MenuBarAttention: Hashable {
 struct MenuBarPresentation: Equatable {
     var title: String
     var attention: MenuBarAttention
+    /// Graph mode: the last samples as 0–8 bar heights, so the image only redraws when a bar changes.
+    var graph: [UInt8]? = nil
 
-    static func make(cpu: Double, attention: Insight.Severity?) -> MenuBarPresentation {
+    static let graphBars = 14
+
+    static func make(cpu: Double, attention: Insight.Severity?, graph history: [Double]? = nil) -> MenuBarPresentation {
         let level: MenuBarAttention = switch attention {
         case .critical: .critical
         case .warning: .warning
         default: .none
         }
-        return MenuBarPresentation(title: Format.percent(cpu), attention: level)
+        let graph = history.map { values in
+            let recent = values.suffix(graphBars).map { UInt8((min(max($0.isFinite ? $0 : 0, 0), 1) * 8).rounded()) }
+            return Array(repeating: 0, count: graphBars - recent.count) + recent
+        }
+        return MenuBarPresentation(title: graph == nil ? Format.percent(cpu) : "", attention: level, graph: graph)
     }
 }

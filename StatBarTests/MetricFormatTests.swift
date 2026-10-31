@@ -178,4 +178,14 @@ final class MetricFormatTests: XCTestCase {
         XCTAssertEqual(StatMonitor.samplingTolerance(popoverVisible: true), StatMonitor.activeSamplingTolerance)
         XCTAssertEqual(StatMonitor.historyLength, 60)
     }
+
+    func testGraphPresentationQuantizesAndPads() {
+        let graph = MenuBarPresentation.make(cpu: 0.5, attention: nil, graph: [0.5, 1.0, .nan, 2.0])
+        XCTAssertEqual(graph.title, "")
+        XCTAssertEqual(graph.graph?.count, MenuBarPresentation.graphBars)
+        XCTAssertEqual(graph.graph?.suffix(4), [4, 8, 0, 8])
+        XCTAssertEqual(graph, MenuBarPresentation.make(cpu: 0.9, attention: nil, graph: [0.51, 1.0, 0, 1.0]),
+                       "a tiny change doesn't redraw the menu bar")
+        XCTAssertNil(MenuBarPresentation.make(cpu: 0.5, attention: nil).graph)
+    }
 }

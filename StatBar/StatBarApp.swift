@@ -215,19 +215,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         guard let button = statusItem?.button else { return }
         let presentation = monitor.menuBarPresentation
         guard presentation != appliedPresentation else { return }
-        let attentionChanged = appliedPresentation?.attention != presentation.attention
+        let imageChanged = appliedPresentation?.attention != presentation.attention || appliedPresentation?.graph != presentation.graph
         appliedPresentation = presentation
         if button.title != presentation.title {
             button.title = presentation.title
         }
-        if attentionChanged {
-            button.image = statusImage(for: presentation.attention)
+        if imageChanged {
+            button.image = presentation.graph.map { Self.graphImage($0, attention: presentation.attention) }
+                ?? statusImage(for: presentation.attention)
         }
         let summary = monitor.accessibilitySummary
         if button.toolTip != summary {
             button.toolTip = summary
             button.setAccessibilityLabel(summary)
         }
+    }
+
+    /// Bars for the recent CPU samples, sized to the fixed status item. A template image unless something
+    /// needs attention, so it follows the menu bar's light or dark appearance.
+    static func graphImage(_ bars: [UInt8], attention: MenuBarAttention) -> NSImage {
+        let size = NSSize(width: 42, height: 16)
+        let tint: NSColor = switch attention {
+        case .critical: .systemRed
+        case .warning: .systemYellow
+        case .none: .black
+        }
+        let image = NSImage(size: size, flipped: false) { rect in
+            let slot = rect.width / CGFloat(max(bars.count, 1))
+            tint.withAlphaComponent(0.25).setFill()
+            NSBezierPath(rect: NSRect(x: 0, y: 1, width: rect.width, height: 1)).fill()
+            tint.setFill()
+            for (index, bar) in bars.enumerated() where bar > 0 {
+                let height = (rect.height - 2) * CGFloat(bar) / 8
+                NSBezierPath(roundedRect: NSRect(x: CGFloat(index) * slot + 0.5, y: 1, width: max(slot - 1, 1), height: height),
+                             xRadius: 0.75, yRadius: 0.75).fill()
+            }
+            return true
+        }
+        image.isTemplate = attention == .none
+        return image
     }
 
     private func statusImage(for attention: MenuBarAttention) -> NSImage? {

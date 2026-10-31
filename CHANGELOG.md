@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Alert When: your own notified alerts for a busy app, total CPU and uploads.
+- Past 7 days: hourly history kept for 30 days, shown as daily CPU and network totals.
+- Warn when the startup disk is on track to fill within two weeks; note battery health below 80%.
+- Optional CPU graph in the menu bar.
+
 ## 1.0.0 — 2026-10-27
 
 First stable release, signed and notarized for Apple Silicon on macOS 27 or later.
