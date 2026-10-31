@@ -31,6 +31,8 @@ struct Signals: Sendable {
     var interfaceName: String?
     var vpnConnected: Bool?
     var uploadRate: Double = 0
+    /// From the hourly history: when the startup disk fills at its recent rate.
+    var startupDiskFull: (name: String, days: Double)?
     /// nil when the slower readings weren't refreshed this tick.
     var processes: [ProcessUsage]?
     var volumes: [VolumeInfo]?
@@ -60,6 +62,10 @@ struct InsightEngine {
         var cpuAlert: Double?
         var uploadAlertBytesPerSecond: Double?
         var customAlertAfter: TimeInterval = 5 * 60
+        /// Battery maximum capacity below this is worth a note.
+        var batteryHealthNote = 0.8
+        /// Warn when the startup disk is on track to fill within this many days.
+        var diskFullWarningDays = 14.0
     }
 
     var thresholds = Thresholds()
@@ -98,6 +104,7 @@ struct InsightEngine {
         conditions += gpuConditions(signals, now: now)
         conditions += blockerConditions(now: now)
         conditions += customConditions(signals, now: now)
+        conditions += trendConditions(signals, now: now)
 
         let previous = Set(active.map(\.id))
         active = conditions.sorted { lhs, rhs in
@@ -300,6 +307,36 @@ struct InsightEngine {
                 detail: "For \(Format.duration(now.timeIntervalSince(since))). A sync or backup is the usual cause.",
                 since: since,
                 notifies: true
+            ))
+        }
+        return insights
+    }
+
+    /// Slow changes: the startup disk filling over days, and battery wear.
+    private func trendConditions(_ signals: Signals, now: Date) -> [Insight] {
+        var insights: [Insight] = []
+        if let trend = signals.startupDiskFull, trend.days < thresholds.diskFullWarningDays {
+            let days = max(1, Int(trend.days.rounded()))
+            insights.append(Insight(
+                id: "diskTrend",
+                severity: trend.days < 3 ? .critical : .warning,
+                symbol: "chart.line.downtrend.xyaxis",
+                title: "\(trend.name) fills in about \(days) day\(days == 1 ? "" : "s")",
+                detail: "At the rate free space fell over the last three days.",
+                since: now,
+                notifies: true
+            ))
+        }
+        if let health = signals.battery?.health, health < thresholds.batteryHealthNote {
+            let cycles = signals.battery?.cycleCount.map { ", \($0) cycles" } ?? ""
+            insights.append(Insight(
+                id: "batteryHealth",
+                severity: .info,
+                symbol: "battery.75percent",
+                title: "Battery holds \(Format.percent(health)) of its original charge",
+                detail: "Below 80%\(cycles). Apple suggests service at this point.",
+                since: now,
+                notifies: false
             ))
         }
         return insights

@@ -31,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             defaults.setVolatileDomain(arguments, forName: UserDefaults.argumentDomain)
         }
         monitor = StatMonitor()
+        monitor.persistsHistory = !launchMode.isDiagnostic
         super.init()
     }
 
