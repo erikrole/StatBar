@@ -349,6 +349,21 @@ struct StatBarView: View {
             Spacer()
             Menu {
                 Toggle("Alerts", isOn: $monitor.notificationsEnabled)
+                Menu("Alert When") {
+                    Picker("An app uses", selection: $monitor.alertPreferences.appCores) {
+                        Text("Off").tag(0.0)
+                        ForEach(AlertPreferences.appCoreChoices, id: \.self) { Text("More than \(Int($0)) core\($0 == 1 ? "" : "s")").tag($0) }
+                    }
+                    Picker("CPU stays above", selection: $monitor.alertPreferences.cpuPercent) {
+                        Text("Off").tag(0)
+                        ForEach(AlertPreferences.cpuChoices, id: \.self) { Text("\($0)%").tag($0) }
+                    }
+                    Picker("Uploads stay above", selection: $monitor.alertPreferences.uploadMegabytesPerSecond) {
+                        Text("Off").tag(0)
+                        ForEach(AlertPreferences.uploadChoices, id: \.self) { Text("\($0) MB/s").tag($0) }
+                    }
+                    Text("Each must last five minutes.")
+                }
                 Toggle("Open at login", isOn: Binding(
                     get: { launchAtLogin.isEnabled },
                     set: { launchAtLogin.setEnabled($0) }

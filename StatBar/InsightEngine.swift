@@ -30,6 +30,7 @@ struct Signals: Sendable {
     var transport: TransportKind = .none
     var interfaceName: String?
     var vpnConnected: Bool?
+    var uploadRate: Double = 0
     /// nil when the slower readings weren't refreshed this tick.
     var processes: [ProcessUsage]?
     var volumes: [VolumeInfo]?
@@ -54,6 +55,11 @@ struct InsightEngine {
         var swapWindow: TimeInterval = 600
         var longSleepBlock: TimeInterval = 30 * 60
         var chargerDeficitAfter: TimeInterval = 60
+        /// Your own alerts (Settings menu → Alert when). nil is off.
+        var appAlertCores: Double?
+        var cpuAlert: Double?
+        var uploadAlertBytesPerSecond: Double?
+        var customAlertAfter: TimeInterval = 5 * 60
     }
 
     var thresholds = Thresholds()
@@ -91,6 +97,7 @@ struct InsightEngine {
         conditions += networkConditions(signals, now: now)
         conditions += gpuConditions(signals, now: now)
         conditions += blockerConditions(now: now)
+        conditions += customConditions(signals, now: now)
 
         let previous = Set(active.map(\.id))
         active = conditions.sorted { lhs, rhs in
@@ -117,22 +124,25 @@ struct InsightEngine {
 
     private mutating func runawayApps(now: Date) -> [Insight] {
         var insights: [Insight] = []
-        let hot = Set(lastProcesses.filter { $0.cpu >= thresholds.runawayCores * 100 && !Self.isSystemProcess($0.name) }.map(\.name))
+        let custom = thresholds.appAlertCores
+        let cores = custom ?? thresholds.runawayCores
+        let after = custom == nil ? thresholds.runawayAfter : thresholds.customAlertAfter
+        let hot = Set(lastProcesses.filter { $0.cpu >= cores * 100 && !Self.isSystemProcess($0.name) }.map(\.name))
         // Clear pending timers for apps that cooled off.
         for key in firstSeen.keys where key.hasPrefix("pending|runaway|") {
             let name = String(key.dropFirst("pending|runaway|".count))
             if !hot.contains(name) { firstSeen[key] = nil }
         }
         for process in lastProcesses where hot.contains(process.name) {
-            guard let since = sustained("runaway|\(process.name)", true, for: thresholds.runawayAfter, now: now) else { continue }
+            guard let since = sustained("runaway|\(process.name)", true, for: after, now: now) else { continue }
             insights.append(Insight(
                 id: "runaway|\(process.name)",
-                severity: .info,
+                severity: custom == nil ? .info : .warning,
                 symbol: "flame",
                 title: "\(process.name) is using \(Format.cores(process.cpu)) cores",
                 detail: "For \(Format.duration(now.timeIntervalSince(since))). Expected during a render or export.",
                 since: since,
-                notifies: false
+                notifies: custom != nil
             ))
         }
         return insights
@@ -260,6 +270,39 @@ struct InsightEngine {
             since: since,
             notifies: true
         )]
+    }
+
+    /// Whole-Mac CPU and upload alerts you switched on; both must hold for `customAlertAfter`.
+    private mutating func customConditions(_ signals: Signals, now: Date) -> [Insight] {
+        var insights: [Insight] = []
+        let cpuLimit = thresholds.cpuAlert
+        if let since = sustained("cpuAlert", cpuLimit.map { signals.cpu >= $0 } ?? false, for: thresholds.customAlertAfter, now: now),
+           let cpuLimit {
+            insights.append(Insight(
+                id: "cpuAlert",
+                severity: .warning,
+                symbol: "cpu",
+                title: "CPU above \(Format.percent(cpuLimit))",
+                detail: "For \(Format.duration(now.timeIntervalSince(since))). Check the top processes below.",
+                since: since,
+                notifies: true
+            ))
+        }
+        let uploadLimit = thresholds.uploadAlertBytesPerSecond
+        if let since = sustained("uploadAlert", uploadLimit.map { signals.uploadRate >= $0 } ?? false,
+                                 for: thresholds.customAlertAfter, now: now),
+           let uploadLimit {
+            insights.append(Insight(
+                id: "uploadAlert",
+                severity: .warning,
+                symbol: "arrow.up.circle",
+                title: "Uploading over \(Format.rate(uploadLimit))",
+                detail: "For \(Format.duration(now.timeIntervalSince(since))). A sync or backup is the usual cause.",
+                since: since,
+                notifies: true
+            ))
+        }
+        return insights
     }
 
     private mutating func gpuConditions(_ signals: Signals, now: Date) -> [Insight] {

@@ -57,7 +57,18 @@ final class StatMonitor {
             if notificationsEnabled { Self.requestNotificationPermission() }
         }
     }
-    private var engine = InsightEngine()
+    private var engine: InsightEngine = {
+        var engine = InsightEngine()
+        engine.thresholds = AlertPreferences.load().thresholds()
+        return engine
+    }()
+    /// Your own alert levels, from the Settings menu.
+    var alertPreferences = AlertPreferences.load() {
+        didSet {
+            alertPreferences.save()
+            engine.thresholds = alertPreferences.thresholds()
+        }
+    }
     private var hasDetail = false
     private var lastNotified: [String: Date] = [:]
     var attentionLevel: Insight.Severity? { insights.map(\.severity).max() }
@@ -195,6 +206,7 @@ final class StatMonitor {
         signals.transport = network.transport
         signals.interfaceName = network.interfaceName
         signals.vpnConnected = vpnStatusKnown ? network.vpnTunnel != nil : nil
+        signals.uploadRate = uploadRate
         if hasDetail {
             signals.processes = processes
             signals.volumes = alertVolumes
