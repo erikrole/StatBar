@@ -30,6 +30,9 @@ struct Signals: Sendable {
     var transport: TransportKind = .none
     var interfaceName: String?
     var vpnConnected: Bool?
+    var uploadRate: Double = 0
+    /// From the hourly history: when the startup disk fills at its recent rate.
+    var startupDiskFull: (name: String, days: Double)?
     /// nil when the slower readings weren't refreshed this tick.
     var processes: [ProcessUsage]?
     var volumes: [VolumeInfo]?
@@ -54,6 +57,15 @@ struct InsightEngine {
         var swapWindow: TimeInterval = 600
         var longSleepBlock: TimeInterval = 30 * 60
         var chargerDeficitAfter: TimeInterval = 60
+        /// Your own alerts (Settings menu → Alert when). nil is off.
+        var appAlertCores: Double?
+        var cpuAlert: Double?
+        var uploadAlertBytesPerSecond: Double?
+        var customAlertAfter: TimeInterval = 5 * 60
+        /// Battery maximum capacity below this is worth a note.
+        var batteryHealthNote = 0.8
+        /// Warn when the startup disk is on track to fill within this many days.
+        var diskFullWarningDays = 14.0
     }
 
     var thresholds = Thresholds()
@@ -91,6 +103,8 @@ struct InsightEngine {
         conditions += networkConditions(signals, now: now)
         conditions += gpuConditions(signals, now: now)
         conditions += blockerConditions(now: now)
+        conditions += customConditions(signals, now: now)
+        conditions += trendConditions(signals, now: now)
 
         let previous = Set(active.map(\.id))
         active = conditions.sorted { lhs, rhs in
@@ -117,22 +131,25 @@ struct InsightEngine {
 
     private mutating func runawayApps(now: Date) -> [Insight] {
         var insights: [Insight] = []
-        let hot = Set(lastProcesses.filter { $0.cpu >= thresholds.runawayCores * 100 && !Self.isSystemProcess($0.name) }.map(\.name))
+        let custom = thresholds.appAlertCores
+        let cores = custom ?? thresholds.runawayCores
+        let after = custom == nil ? thresholds.runawayAfter : thresholds.customAlertAfter
+        let hot = Set(lastProcesses.filter { $0.cpu >= cores * 100 && !Self.isSystemProcess($0.name) }.map(\.name))
         // Clear pending timers for apps that cooled off.
         for key in firstSeen.keys where key.hasPrefix("pending|runaway|") {
             let name = String(key.dropFirst("pending|runaway|".count))
             if !hot.contains(name) { firstSeen[key] = nil }
         }
         for process in lastProcesses where hot.contains(process.name) {
-            guard let since = sustained("runaway|\(process.name)", true, for: thresholds.runawayAfter, now: now) else { continue }
+            guard let since = sustained("runaway|\(process.name)", true, for: after, now: now) else { continue }
             insights.append(Insight(
                 id: "runaway|\(process.name)",
-                severity: .info,
+                severity: custom == nil ? .info : .warning,
                 symbol: "flame",
                 title: "\(process.name) is using \(Format.cores(process.cpu)) cores",
                 detail: "For \(Format.duration(now.timeIntervalSince(since))). Expected during a render or export.",
                 since: since,
-                notifies: false
+                notifies: custom != nil
             ))
         }
         return insights
@@ -260,6 +277,69 @@ struct InsightEngine {
             since: since,
             notifies: true
         )]
+    }
+
+    /// Whole-Mac CPU and upload alerts you switched on; both must hold for `customAlertAfter`.
+    private mutating func customConditions(_ signals: Signals, now: Date) -> [Insight] {
+        var insights: [Insight] = []
+        let cpuLimit = thresholds.cpuAlert
+        if let since = sustained("cpuAlert", cpuLimit.map { signals.cpu >= $0 } ?? false, for: thresholds.customAlertAfter, now: now),
+           let cpuLimit {
+            insights.append(Insight(
+                id: "cpuAlert",
+                severity: .warning,
+                symbol: "cpu",
+                title: "CPU above \(Format.percent(cpuLimit))",
+                detail: "For \(Format.duration(now.timeIntervalSince(since))). Check the top processes below.",
+                since: since,
+                notifies: true
+            ))
+        }
+        let uploadLimit = thresholds.uploadAlertBytesPerSecond
+        if let since = sustained("uploadAlert", uploadLimit.map { signals.uploadRate >= $0 } ?? false,
+                                 for: thresholds.customAlertAfter, now: now),
+           let uploadLimit {
+            insights.append(Insight(
+                id: "uploadAlert",
+                severity: .warning,
+                symbol: "arrow.up.circle",
+                title: "Uploading over \(Format.rate(uploadLimit))",
+                detail: "For \(Format.duration(now.timeIntervalSince(since))). A sync or backup is the usual cause.",
+                since: since,
+                notifies: true
+            ))
+        }
+        return insights
+    }
+
+    /// Slow changes: the startup disk filling over days, and battery wear.
+    private func trendConditions(_ signals: Signals, now: Date) -> [Insight] {
+        var insights: [Insight] = []
+        if let trend = signals.startupDiskFull, trend.days < thresholds.diskFullWarningDays {
+            let days = max(1, Int(trend.days.rounded()))
+            insights.append(Insight(
+                id: "diskTrend",
+                severity: trend.days < 3 ? .critical : .warning,
+                symbol: "chart.line.downtrend.xyaxis",
+                title: "\(trend.name) fills in about \(days) day\(days == 1 ? "" : "s")",
+                detail: "At the rate free space fell over the last three days.",
+                since: now,
+                notifies: true
+            ))
+        }
+        if let health = signals.battery?.health, health < thresholds.batteryHealthNote {
+            let cycles = signals.battery?.cycleCount.map { ", \($0) cycles" } ?? ""
+            insights.append(Insight(
+                id: "batteryHealth",
+                severity: .info,
+                symbol: "battery.75percent",
+                title: "Battery holds \(Format.percent(health)) of its original charge",
+                detail: "Below 80%\(cycles). Apple suggests service at this point.",
+                since: now,
+                notifies: false
+            ))
+        }
+        return insights
     }
 
     private mutating func gpuConditions(_ signals: Signals, now: Date) -> [Insight] {

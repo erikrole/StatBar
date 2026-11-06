@@ -44,6 +44,37 @@ final class InsightEngineTests: XCTestCase {
         XCTAssertTrue(engine.active.isEmpty)
     }
 
+    func testYourAlertsNotifyAfterFiveMinutes() {
+        var engine = InsightEngine()
+        var preferences = AlertPreferences()
+        preferences.appCores = 2
+        preferences.cpuPercent = 80
+        preferences.uploadMegabytesPerSecond = 5
+        engine.thresholds = preferences.thresholds()
+        let hog = [ProcessUsage(name: "Grok Bot", cpu: 240, memory: 1 << 30, count: 9)]
+        func busy(_ seconds: TimeInterval) -> Signals {
+            signals(at: seconds) { $0.processes = hog; $0.cpu = 0.85; $0.uploadRate = 6_000_000 }
+        }
+        engine.update(busy(0))
+        XCTAssertTrue(engine.update(busy(120)).isEmpty, "a minute-long spike is not enough")
+        let fresh = engine.update(busy(301))
+        XCTAssertEqual(Set(fresh.map(\.id)), ["runaway|Grok Bot", "cpuAlert", "uploadAlert"])
+        XCTAssertTrue(fresh.allSatisfy(\.notifies))
+        XCTAssertTrue(engine.update(signals(at: 310) { $0.processes = [] }).isEmpty)
+        XCTAssertTrue(engine.active.isEmpty)
+    }
+
+    func testAlertPreferencesRoundTripAndZeroIsOff() {
+        let name = "StatBarTests.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        XCTAssertNil(AlertPreferences.load(from: defaults).thresholds().cpuAlert)
+        var preferences = AlertPreferences()
+        preferences.cpuPercent = 90
+        preferences.save(to: defaults)
+        XCTAssertEqual(AlertPreferences.load(from: defaults).thresholds().cpuAlert, 0.9)
+    }
+
     func testSystemProcessesAreNotRunaways() {
         var engine = InsightEngine()
         let busy = [ProcessUsage(name: "WindowServer", cpu: 300, memory: 0, count: 1)]

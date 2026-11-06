@@ -11,6 +11,7 @@ struct StatBarView: View {
     @AppStorage(AppUpdate.autoUpdateKey) private var autoUpdate = true
     @AppStorage("showPowerDetails") private var showPowerDetails = false
     @AppStorage("showNetworkDetails") private var showNetworkDetails = false
+    @AppStorage("showHistory") private var showHistory = false
     /// Set by `--snapshot`, which can't draw AppKit controls such as the segmented picker.
     var isSnapshot = false
 
@@ -51,6 +52,7 @@ struct StatBarView: View {
                 disksCard
                 heatCard
                 processesCard
+                historyCard
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 6)
@@ -276,6 +278,38 @@ struct StatBarView: View {
         }
     }
 
+    /// Daily CPU and network totals from the hourly history Monitor keeps for 30 days.
+    private var historyCard: some View {
+        VStack(spacing: 0) {
+            Divider()
+            Details(isExpanded: $showHistory, label: "Past 7 days") {
+                if monitor.historyDays.isEmpty {
+                    Text("Monitor keeps an hourly summary; the first days appear here as they finish.")
+                } else {
+                    DailyBars(days: monitor.historyDays)
+                        .frame(height: 64)
+                        .accessibilityElement()
+                        .accessibilityLabel(historyAccessibility)
+                    HStack(spacing: 16) {
+                        Label(Format.diskBytes(Int64(monitor.historyDays.reduce(0) { $0 + $1.downloadBytes })), systemImage: "arrow.down")
+                        Label(Format.diskBytes(Int64(monitor.historyDays.reduce(0) { $0 + $1.uploadBytes })), systemImage: "arrow.up")
+                        Spacer()
+                        Text("CPU average · peak").foregroundStyle(.tertiary)
+                    }
+                    .monospacedDigit()
+                    .symbolRenderingMode(.monochrome)
+                }
+            }
+            .padding(.vertical, 12)
+        }
+    }
+
+    private var historyAccessibility: String {
+        monitor.historyDays.map {
+            "\($0.day.formatted(.dateTime.weekday(.wide))): CPU average \(Format.percent($0.cpuAverage)), peak \(Format.percent($0.cpuMax))"
+        }.joined(separator: "; ")
+    }
+
     private var heatCard: some View {
         VStack(spacing: 0) {
             Divider()
@@ -349,6 +383,22 @@ struct StatBarView: View {
             Spacer()
             Menu {
                 Toggle("Alerts", isOn: $monitor.notificationsEnabled)
+                Toggle("CPU Graph in Menu Bar", isOn: $monitor.menuBarGraph)
+                Menu("Alert When") {
+                    Picker("An app uses", selection: $monitor.alertPreferences.appCores) {
+                        Text("Off").tag(0.0)
+                        ForEach(AlertPreferences.appCoreChoices, id: \.self) { Text("More than \(Int($0)) core\($0 == 1 ? "" : "s")").tag($0) }
+                    }
+                    Picker("CPU stays above", selection: $monitor.alertPreferences.cpuPercent) {
+                        Text("Off").tag(0)
+                        ForEach(AlertPreferences.cpuChoices, id: \.self) { Text("\($0)%").tag($0) }
+                    }
+                    Picker("Uploads stay above", selection: $monitor.alertPreferences.uploadMegabytesPerSecond) {
+                        Text("Off").tag(0)
+                        ForEach(AlertPreferences.uploadChoices, id: \.self) { Text("\($0) MB/s").tag($0) }
+                    }
+                    Text("Each must last five minutes.")
+                }
                 Toggle("Open at login", isOn: Binding(
                     get: { launchAtLogin.isEnabled },
                     set: { launchAtLogin.setEnabled($0) }
@@ -454,6 +504,36 @@ private struct Card<Content: View>: View {
         }
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Seven day columns: a filled bar for average CPU and a thin mark for the day's peak.
+private struct DailyBars: View {
+    let days: [DaySummary]
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Canvas { context, size in
+                let count = max(days.count, 1)
+                let slot = size.width / CGFloat(count)
+                let width = min(slot * 0.55, 22)
+                for (index, day) in days.enumerated() {
+                    let x = slot * CGFloat(index) + (slot - width) / 2
+                    let average = CGFloat(min(max(day.cpuAverage, 0), 1)) * size.height
+                    let peak = CGFloat(min(max(day.cpuMax, 0), 1)) * size.height
+                    context.fill(Path(roundedRect: CGRect(x: x, y: size.height - max(average, 1), width: width, height: max(average, 1)),
+                                      cornerRadius: 2), with: .color(.blue))
+                    context.fill(Path(CGRect(x: x, y: size.height - peak, width: width, height: 1.5)), with: .color(.blue.opacity(0.45)))
+                }
+            }
+            HStack(spacing: 0) {
+                ForEach(days) { day in
+                    Text(day.day.formatted(.dateTime.weekday(.narrow)))
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .foregroundStyle(.tertiary)
+        }
     }
 }
 

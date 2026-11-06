@@ -41,6 +41,12 @@ covers the whole machine.
   throttling) can also send
   a notification, at most once per condition every 30 minutes; Alerts in the
   footer settings menu turns that off.
+
+  **Alert When** (footer settings menu) adds your own notified alerts, each held
+  for five minutes: one app above 1/2/4/8 cores, total CPU above 70/80/90%, or
+  uploads above 1/5/20/50 MB/s. Monitor also warns when the startup disk is on
+  track to fill within two weeks (from its last three days of free space) and
+  notes when battery health drops below 80%.
 - **CPU and GPU:** side-by-side load summaries with about two minutes of history. Expand
   CPU cores for each core group (Super and Performance on M5) and per-core bars.
 - **Memory:** pressure and used memory at a glance; expand for compressed memory,
@@ -54,6 +60,13 @@ covers the whole machine.
   shares are skipped so a slow NAS can't stall the menu), plus live read and write.
 - **Heat:** macOS thermal state (whether the Mac is throttling) and fan speeds.
 - **Top apps:** by CPU or memory, with helper processes counted as their app.
+- **Past 7 days:** daily average and peak CPU and network totals. Monitor keeps
+  an hourly summary of system-wide numbers only (no app names or addresses) for
+  30 days in `~/Library/Application Support/StatBar/history.json`. Diagnostic
+  launches never write it.
+
+**CPU Graph in Menu Bar** (settings menu) swaps the percentage for a small bar
+graph of recent CPU; it turns yellow or red when something needs attention.
 
 Charts use blue for CPU, cores and downloads, purple for GPU, teal for disks,
 and orange for uploads. Healthy memory, battery and network indicators are green;

@@ -57,7 +57,30 @@ final class StatMonitor {
             if notificationsEnabled { Self.requestNotificationPermission() }
         }
     }
-    private var engine = InsightEngine()
+    /// Hourly history on disk. Updated every tick but published only when an hour closes.
+    @ObservationIgnored private var history = StatMonitor.loadHistory()
+    private(set) var historyDays: [DaySummary] = []
+    @ObservationIgnored private var startupDiskTrend: (name: String, days: Double)?
+    @ObservationIgnored private var lastHistorySample: Date?
+    /// Off for `--report`, `--snapshot` and `--measure-idle`, which must not touch your saved history.
+    @ObservationIgnored var persistsHistory = true
+
+    private static func loadHistory() -> UsageHistory {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil ? UsageHistory.load() : UsageHistory()
+    }
+
+    private var engine: InsightEngine = {
+        var engine = InsightEngine()
+        engine.thresholds = AlertPreferences.load().thresholds()
+        return engine
+    }()
+    /// Your own alert levels, from the Settings menu.
+    var alertPreferences = AlertPreferences.load() {
+        didSet {
+            alertPreferences.save()
+            engine.thresholds = alertPreferences.thresholds()
+        }
+    }
     private var hasDetail = false
     private var lastNotified: [String: Date] = [:]
     var attentionLevel: Insight.Severity? { insights.map(\.severity).max() }
@@ -175,6 +198,7 @@ final class StatMonitor {
         // in the idle footprint.
         autoreleasepool {
             sampleFast()
+            recordHistory()
             thermalState = ProcessInfo.processInfo.thermalState
             // Detail every tick while you're looking, otherwise every 30 s so StatBar can
             // still notice a runaway app, a full disk or a mounted drive on its own.
@@ -195,6 +219,8 @@ final class StatMonitor {
         signals.transport = network.transport
         signals.interfaceName = network.interfaceName
         signals.vpnConnected = vpnStatusKnown ? network.vpnTunnel != nil : nil
+        signals.uploadRate = uploadRate
+        signals.startupDiskFull = startupDiskTrend
         if hasDetail {
             signals.processes = processes
             signals.volumes = alertVolumes
@@ -236,6 +262,22 @@ final class StatMonitor {
         // Command-line overrides live in NSArgumentDomain as strings. bool(forKey:)
         // interprets those as well as persisted Bool values without changing either.
         defaults.object(forKey: "notificationsEnabled") == nil || defaults.bool(forKey: "notificationsEnabled")
+    }
+
+    private func recordHistory(now: Date = Date()) {
+        // Count the real time since the last sample (capped), so a slow tick doesn't undercount bytes.
+        let seconds = lastHistorySample.map { min(max(now.timeIntervalSince($0), 0), Self.interval * 5) } ?? Self.interval
+        lastHistorySample = now
+        let startup = volumes.first { $0.url.path == "/" } ?? volumes.first(where: \.isInternal)
+        let closed = history.record(cpu: cpu, memory: memory?.usedFraction, downloadRate: downloadRate, uploadRate: uploadRate,
+                                    seconds: seconds, startupFree: startup?.available, at: now)
+        if closed || historyDays.isEmpty {
+            if closed, persistsHistory, !Self.isRunningTests { history.save() }
+            historyDays = history.days(7)
+            startupDiskTrend = startup.flatMap { volume in
+                history.daysUntilStartupFull(now: now).map { (volume.name, $0) }
+            }
+        }
     }
 
     private func sampleFast() {
@@ -461,6 +503,9 @@ final class StatMonitor {
         guard paused != isPaused else { return }
         isPaused = paused
         if paused {
+            // Keep the partial hour across sleep; the gap itself isn't counted.
+            if persistsHistory, !Self.isRunningTests { history.save() }
+            lastHistorySample = nil
             samplingTask?.cancel()
             samplingTask = nil
             stopPathMonitoring()
@@ -518,7 +563,15 @@ final class StatMonitor {
     /// What the status item actually draws. Equal values must not touch the button:
     /// assigning an image or title marks the menu bar dirty in WindowServer.
     var menuBarPresentation: MenuBarPresentation {
-        MenuBarPresentation.make(cpu: cpu, attention: attentionLevel)
+        MenuBarPresentation.make(cpu: cpu, attention: attentionLevel, graph: menuBarGraph ? cpuHistory : nil)
+    }
+
+    /// Draw a small CPU graph in the menu bar instead of the percentage.
+    var menuBarGraph: Bool = UserDefaults.standard.bool(forKey: "menuBarGraph") {
+        didSet {
+            UserDefaults.standard.set(menuBarGraph, forKey: "menuBarGraph")
+            onSample?()
+        }
     }
 
     var accessibilitySummary: String {
@@ -547,13 +600,21 @@ enum MenuBarAttention: Hashable {
 struct MenuBarPresentation: Equatable {
     var title: String
     var attention: MenuBarAttention
+    /// Graph mode: the last samples as 0–8 bar heights, so the image only redraws when a bar changes.
+    var graph: [UInt8]? = nil
 
-    static func make(cpu: Double, attention: Insight.Severity?) -> MenuBarPresentation {
+    static let graphBars = 14
+
+    static func make(cpu: Double, attention: Insight.Severity?, graph history: [Double]? = nil) -> MenuBarPresentation {
         let level: MenuBarAttention = switch attention {
         case .critical: .critical
         case .warning: .warning
         default: .none
         }
-        return MenuBarPresentation(title: Format.percent(cpu), attention: level)
+        let graph = history.map { values in
+            let recent = values.suffix(graphBars).map { UInt8((min(max($0.isFinite ? $0 : 0, 0), 1) * 8).rounded()) }
+            return Array(repeating: 0, count: graphBars - recent.count) + recent
+        }
+        return MenuBarPresentation(title: graph == nil ? Format.percent(cpu) : "", attention: level, graph: graph)
     }
 }
