@@ -124,6 +124,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }.max() ?? 0
         item.length = ceil(contentWidth)
         statusItem = item
+        AppUpdate.updater.hostView = item.button
         updateStatusItemIfNeeded()
     }
 
@@ -197,7 +198,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        AppUpdate.isPreparing ? .terminateCancel : .terminateNow
+        guard !AppUpdate.isPreparing else { return .terminateCancel }
+        AppUpdate.updater.applyOnQuitIfReady()
+        return .terminateNow
     }
 
     func applicationWillTerminate(_ notification: Notification) {

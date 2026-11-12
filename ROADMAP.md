@@ -28,3 +28,5 @@ updates and single-instance behavior are implemented.
 
 Current evidence and remaining boundaries: [1.0 readiness](docs/1.0-readiness.md).
 Release workflow: [releasing](docs/releasing.md).
+
+Monitor uses the shared updater schedule and its verified stable feed. Install on Quit is optional.
