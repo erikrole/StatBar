@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2
+
+- Check for updates while the app is open, including after sleep or reconnecting.
+- Offer optional installation on quit and preserve the previous version until startup succeeds.
+
+
 ## 1.0.0 — 2026-10-27
 
 First stable release, signed and notarized for Apple Silicon on macOS 27 or later.

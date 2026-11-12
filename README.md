@@ -173,3 +173,5 @@ after two attempts. The Settings menu also shows the installed version and build
 
 See [releasing](docs/releasing.md) for the signed ZIP workflow and recorded release
 evidence. GitHub publication is a separate step from preparing the local artifact.
+
+Monitor uses the shared updater schedule and its verified stable feed. Install on Quit is optional.

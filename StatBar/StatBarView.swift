@@ -9,6 +9,7 @@ struct StatBarView: View {
     @AppStorage("showCoreDetails") private var showCoreDetails = false
     @AppStorage("showMemoryDetails") private var showMemoryDetails = false
     @AppStorage(AppUpdate.autoUpdateKey) private var autoUpdate = true
+    @AppStorage(AppUpdate.installOnQuitKey) private var installOnQuit = false
     @AppStorage("showPowerDetails") private var showPowerDetails = false
     @AppStorage("showNetworkDetails") private var showNetworkDetails = false
     /// Set by `--snapshot`, which can't draw AppKit controls such as the segmented picker.
@@ -360,8 +361,9 @@ struct StatBarView: View {
                     Button("Open Login Items Settings…") { launchAtLogin.openSettings() }
                 }
                 Divider()
-                Toggle("Update automatically", isOn: $autoUpdate)
-                Button("Check for Updates…") { AppUpdate.checkNow() }
+                Toggle("Download updates automatically", isOn: $autoUpdate)
+                Toggle("Install updates on quit", isOn: $installOnQuit)
+                Button(AppUpdate.updater.menuTitle ?? "Check for Updates…") { AppUpdate.updater.performMenuAction() }
                 Divider()
                 Text("Monitor \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""))")
                 Button("Quit Monitor") { NSApp.terminate(nil) }
