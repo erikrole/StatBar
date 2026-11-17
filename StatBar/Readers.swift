@@ -443,8 +443,9 @@ struct ProcessUsage: Identifiable, Equatable, Sendable {
 struct QuickProcessSampler: Sendable {
     private var previous: [pid_t: UInt64] = [:]
     private var previousAt: UInt64 = 0
-    /// CPU is the average since the previous call, so the first call reports memory only.
-    mutating func sample() -> [ProcessUsage] {
+    /// CPU is the average since the previous call. The first call only records the baseline
+    /// and returns nil: publishing it would list every app at 0% CPU until the next sample.
+    mutating func sample() -> [ProcessUsage]? {
         var pids = [pid_t](repeating: 0, count: 8192)
         let count = Int(proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
         let now = mach_absolute_time()
@@ -482,6 +483,7 @@ struct QuickProcessSampler: Sendable {
         }
         previous = current
         previousAt = now
+        guard elapsedTicks > 0 else { return nil }
         return groups.map { ProcessUsage(name: $0.key, cpu: $0.value.cpu, memory: $0.value.memory, count: $0.value.count) }
     }
 }

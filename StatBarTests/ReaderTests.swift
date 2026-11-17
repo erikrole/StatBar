@@ -115,15 +115,14 @@ final class QuickReaderTests: XCTestCase {
         XCTAssertTrue(DiskReader.volumes().contains { $0.id == "/" })
     }
 
-    func testQuickProcessSamplerSeesOwnProcesses() {
+    func testQuickProcessSamplerSeesOwnProcesses() throws {
         var sampler = QuickProcessSampler()
-        let first = sampler.sample()
-        XCTAssertFalse(first.isEmpty)
-        XCTAssertTrue(first.allSatisfy { $0.cpu == 0 }, "first sample has no CPU baseline")
+        XCTAssertNil(sampler.sample(), "first sample has no CPU baseline, so it publishes nothing")
         var spin = 0.0
         let end = Date().addingTimeInterval(0.3)
         while Date() < end { spin += sin(spin) }
-        let second = sampler.sample()
+        let second = try XCTUnwrap(sampler.sample())
+        XCTAssertFalse(second.isEmpty)
         XCTAssertTrue(second.contains { $0.cpu > 10 }, "the busy test process shows CPU")
         XCTAssertGreaterThan(spin, -1)
     }

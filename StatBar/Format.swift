@@ -16,15 +16,21 @@ enum Format {
     }
 
     static func bytes(_ value: UInt64) -> String {
-        ByteCountFormatter.string(fromByteCount: Int64(clamping: value), countStyle: .memory)
+        byteCount(Int64(clamping: value), style: .memory)
     }
 
     static func diskBytes(_ value: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: max(value, 0), countStyle: .file)
+        byteCount(max(value, 0), style: .file)
     }
 
     static func rate(_ bytesPerSecond: Double) -> String {
-        ByteCountFormatter.string(fromByteCount: clampedByteCount(bytesPerSecond), countStyle: .file) + "/s"
+        byteCount(clampedByteCount(bytesPerSecond), style: .file) + "/s"
+    }
+
+    /// `ByteCountFormatter` spells zero as "Zero KB", which reads oddly next to numbers
+    /// ("Zero KB/s"), so zero gets the same "0 KB" shape as every other value.
+    private static func byteCount(_ count: Int64, style: ByteCountFormatter.CountStyle) -> String {
+        count == 0 ? "0 KB" : ByteCountFormatter.string(fromByteCount: count, countStyle: style)
     }
 
     static func linkSpeed(_ bitsPerSecond: UInt64) -> String {
