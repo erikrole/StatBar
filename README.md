@@ -169,7 +169,7 @@ Stable updates install automatically at launch by default. Turn this off with
 **Settings → Update automatically**. Failed automatic installation stops retrying
 after two attempts. The Settings menu also shows the installed version and build.
 
-`project.yml` pins the public [AppUpdater](https://github.com/erikrole/AppUpdater) package to `e40e410da1362a5fd4b88f5b479b34af9c530d5b`; rerun XcodeGen after changing the pin. Keep package resolution checked in. App and package targets require **macOS 27**. The host retains its save and busy checks during updater relaunch; no forced-exit fallback is configured.
+`project.yml` pins the public [AppUpdater](https://github.com/erikrole/app-updater) package to `e40e410da1362a5fd4b88f5b479b34af9c530d5b`; rerun XcodeGen after changing the pin. Keep package resolution checked in. App and package targets require **macOS 27**. The host retains its save and busy checks during updater relaunch; no forced-exit fallback is configured.
 
 See [releasing](docs/releasing.md) for the signed ZIP workflow and recorded release
 evidence. GitHub publication is a separate step from preparing the local artifact.

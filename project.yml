@@ -5,7 +5,7 @@ options:
     macOS: "27.0"
 packages:
   AppUpdater:
-    url: https://github.com/erikrole/AppUpdater.git
+    url: https://github.com/erikrole/app-updater.git
     revision: e40e410da1362a5fd4b88f5b479b34af9c530d5b
 settings:
   base:
