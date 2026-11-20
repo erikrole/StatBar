@@ -93,6 +93,12 @@ does not build or publish a release. GitHub publication is a separate step after
 the local app is signed, notarized, stapled and verified; attach the final ZIP
 and its checksum, and tag the exact source commit recorded in the release manifest.
 
+Before publishing, run AppUpdater's `swift run ReleaseCheck PREVIOUS.app ARCHIVE VERSION SHA256`
+using the extracted previous public app and the final notarized ZIP. After publication, run
+`scripts/verify-published-release.sh erikrole/StatBar TAG ARCHIVE` from the AppUpdater checkout.
+Use `scripts/update-stable-feed.py` with the public release JSON, archive, and packaged macOS minimum
+to refresh `feeds/statbar.json` in the `erikrole/releases` repository.
+
 Do not commit certificates, private keys, provisioning assets, or notarization
 credentials.
 

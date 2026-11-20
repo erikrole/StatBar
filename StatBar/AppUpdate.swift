@@ -8,11 +8,14 @@ enum AppUpdate {
     static let updater = AppUpdater(.init(
         repository: "erikrole/StatBar", assetName: "StatBar.zip",
         busyReason: { busyReason() }, postUpdate: .quiet,
-        autoInstall: { UserDefaults.standard.object(forKey: autoUpdateKey) as? Bool ?? true }
+        autoInstall: { UserDefaults.standard.object(forKey: autoUpdateKey) as? Bool ?? true },
+        stableFeedURL: URL(string: "https://raw.githubusercontent.com/erikrole/releases/main/feeds/statbar.json"),
+        installOnQuit: { UserDefaults.standard.bool(forKey: installOnQuitKey) }
     ))
 
     /// The Settings switch; on unless turned off.
     nonisolated static let autoUpdateKey = "autoUpdate"
+    nonisolated static let installOnQuitKey = "installUpdatesOnQuit"
 
     static var isPreparing: Bool { updater.isInstalling && !updater.isAwaitingRelaunch }
 

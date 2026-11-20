@@ -6,7 +6,7 @@ options:
 packages:
   AppUpdater:
     url: https://github.com/erikrole/AppUpdater.git
-    revision: be0d006ed0899cc4e661791c41dbc5c23999f261
+    revision: 3c10ddd4e91de8d6f18b5ac6f244d6f50e857bce
 settings:
   base:
     SWIFT_VERSION: 6.0
@@ -25,8 +25,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.erole.StatBar
         PRODUCT_NAME: StatBar
-        MARKETING_VERSION: "1.0.1"
-        CURRENT_PROJECT_VERSION: "7"
+        MARKETING_VERSION: "1.0.2"
+        CURRENT_PROJECT_VERSION: "8"
         ENABLE_HARDENED_RUNTIME: YES
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: StatBar/Info.plist
