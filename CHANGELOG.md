@@ -2,8 +2,14 @@
 
 ## 1.0.2
 
-- Check for updates while the app is open, including after sleep or reconnecting.
+- Check for updates while the app is open, including after sleep or reconnecting (`AppUpdater` `e40e410da1362a5fd4b88f5b479b34af9c530d5b`).
 - Offer optional installation on quit and preserve the previous version until startup succeeds.
+- Format zero byte counts and rates as `0 KB` / `0 KB/s` instead of `"Zero KB"`, and skip the baseline-only first process sample so Top apps never flash `0%`.
+- Guard Login Items auto-registration so Debug builds and copies outside `/Applications` never replace the installed login item, and key cached volume identities by filesystem ID as well as mount path.
+
+## 1.0.1 — 2026-11-06
+
+- Pin AppUpdater to the quiet pill updater.
 
 
 ## 1.0.0 — 2026-10-27

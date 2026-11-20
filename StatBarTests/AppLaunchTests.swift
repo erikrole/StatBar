@@ -56,4 +56,9 @@ final class AppLaunchTests: XCTestCase {
         XCTAssertTrue(unknown.precedes(known))
         XCTAssertFalse(known.precedes(unknown))
     }
+
+    func testLaunchAtLoginAutoRegistrationRequiresInstalledApplicationsPath() {
+        XCTAssertTrue(LaunchAtLoginPolicy.isInstalledInApplications(bundleURL: URL(filePath: "/Applications/StatBar.app")))
+        XCTAssertFalse(LaunchAtLoginPolicy.isInstalledInApplications(bundleURL: URL(filePath: "/Users/role/Code/StatBar/build/run/Build/Products/Debug/StatBar.app")))
+    }
 }

@@ -262,7 +262,8 @@ enum DiskReader {
             }
             guard path == "/" || (path.hasPrefix("/Volumes/") && path.split(separator: "/").count == 2) else { continue }
             let blockSize = Int64(entry.f_bsize)
-            let identity = volumeIdentity(path)
+            let fsid = "\(entry.f_fsid.val.0):\(entry.f_fsid.val.1)"
+            let identity = volumeIdentity(path, fsid: fsid)
             result.append(VolumeInfo(
                 id: path,
                 name: identity.name,
@@ -279,15 +280,16 @@ enum DiskReader {
     nonisolated(unsafe) private static let identityCache = NSCache<NSString, VolumeIdentity>()
 
     /// The volume's real (possibly renamed or localized) name and whether it's internal,
-    /// looked up once per mount path.
-    private static func volumeIdentity(_ path: String) -> (name: String, isInternal: Bool) {
-        if let cached = identityCache.object(forKey: path as NSString) { return (cached.name, cached.isInternal) }
+    /// looked up once per mount path and filesystem ID so remounting a different drive at the same path refreshes it.
+    static func volumeIdentity(_ path: String, fsid: String = "") -> (name: String, isInternal: Bool) {
+        let key = "\(path)|\(fsid)" as NSString
+        if let cached = identityCache.object(forKey: key) { return (cached.name, cached.isInternal) }
         let values = try? URL(filePath: path).resourceValues(forKeys: [.volumeNameKey, .volumeIsInternalKey])
         let identity = VolumeIdentity(
             name: values?.volumeName ?? URL(filePath: path).lastPathComponent,
             isInternal: values?.volumeIsInternal ?? (path == "/")
         )
-        identityCache.setObject(identity, forKey: path as NSString)
+        identityCache.setObject(identity, forKey: key)
         return (identity.name, identity.isInternal)
     }
 

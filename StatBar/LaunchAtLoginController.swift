@@ -13,7 +13,7 @@ final class LaunchAtLoginController {
 
     init(managesService: Bool = true) {
         status = service.status
-        guard managesService, !Self.isRunningTests else { return }
+        guard managesService, !Self.isRunningTests, Self.canAutoRegisterOnLaunch() else { return }
         let storedPreference = defaults.object(forKey: LaunchAtLoginPolicy.preferenceKey) as? Bool
         guard let desiredEnabled = LaunchAtLoginPolicy.desiredEnabled(
             storedPreference: storedPreference,
@@ -26,6 +26,14 @@ final class LaunchAtLoginController {
             defaults.set(desiredEnabled, forKey: LaunchAtLoginPolicy.preferenceKey)
         }
         desiredEnabled ? enable() : disable()
+    }
+
+    static func canAutoRegisterOnLaunch(bundleURL: URL = Bundle.main.bundleURL) -> Bool {
+        #if DEBUG
+        return false
+        #else
+        return LaunchAtLoginPolicy.isInstalledInApplications(bundleURL: bundleURL)
+        #endif
     }
 
     var isEnabled: Bool {
@@ -102,6 +110,11 @@ final class LaunchAtLoginController {
 
 enum LaunchAtLoginPolicy {
     static let preferenceKey = "launchAtLoginEnabled"
+
+    static func isInstalledInApplications(bundleURL: URL) -> Bool {
+        let path = bundleURL.standardizedFileURL.path
+        return path.hasPrefix("/Applications/")
+    }
 
     static func desiredEnabled(
         storedPreference: Bool?,
